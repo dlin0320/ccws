@@ -1,5 +1,7 @@
 # Start-Task Flow - Begin or Resume Work
 
+> **Execution:** Run inline in the main context.
+
 Start working on a task (creates new task if needed, or resumes existing one).
 
 ## Purpose
@@ -12,7 +14,7 @@ Begin work on a task, whether it's brand new or already exists from a previous s
 
 ## Constraints (Required)
 Per workspace REQUIRED RULES:
-- Task directory in `current/` only
+- Task directory in `task/` only
 - README.md is only file created in task directory
 - All other files created in `archive/` and symlinked (see "File Creation During Task")
 
@@ -26,7 +28,7 @@ Extract from user input or ask: "What should we call this task?"
 ### 2. Check if Task Exists
 
 ```bash
-ls -d .claude-workspace/current/[task-name] 2>/dev/null
+ls -d .claude-workspace/task/[task-name] 2>/dev/null
 ```
 
 **If task exists** → Go to Step 3A (Resume)
@@ -38,13 +40,31 @@ Task already exists - show context and get ready to work:
 
 ```bash
 # Read the README
-cat .claude-workspace/current/[task-name]/README.md
+cat .claude-workspace/task/[task-name]/README.md
 
 # List current symlinks
-ls -la .claude-workspace/current/[task-name]/
+ls -la .claude-workspace/task/[task-name]/
+
+# Check for broken symlinks
+find .claude-workspace/task/[task-name]/ -type l ! -exec test -e {} \; -print
 ```
 
-**Confirm resumption:**
+**If broken symlinks are found:**
+List them and warn:
+```
+⚠ Found broken symlinks (targets no longer exist):
+  - [symlink] → [target]
+These may indicate deleted archive files or moved project files.
+Remove broken symlinks? (yes/no)
+```
+If yes: remove the broken symlinks. If no: proceed but warn that broken symlinks may cause errors in subagent flows.
+
+**Check for README changes since last user review:**
+- If the `## Design Decisions` section is non-empty, OR progress notes contain reconcile entries the user may not have seen:
+  - Display the full README content and note: "README has been updated since your last review (design decisions and/or reconcile changes). Please review before continuing."
+  - Wait for user confirmation before proceeding (re-gate).
+- Otherwise, use abbreviated confirmation:
+
 ```
 ✓ Resuming task: [task-name]
 ✓ Objective: [from README]
@@ -71,10 +91,10 @@ Extract from user's message or ask targeted questions:
 #### Create Task Directory and README
 
 ```bash
-mkdir -p .claude-workspace/current/[task-name]
+mkdir -p .claude-workspace/task/[task-name]
 ```
 
-Create `.claude-workspace/current/[task-name]/README.md` using template below.
+Create `.claude-workspace/task/[task-name]/README.md` using template below.
 
 #### README Template
 
@@ -94,6 +114,9 @@ Fill in what you have from user's input:
 ## Success Criteria
 [How will we know it's done? Specific, testable conditions]
 
+## Design Decisions
+<!-- Intentional divergences from spec — added during checkpoint or reconcile -->
+
 ## Progress Notes
 [Ordered list of progress updates - added during "checkpoint"]
 ```
@@ -106,27 +129,34 @@ Fill in what you have from user's input:
 
 ```bash
 # Example: User mentioned fixing auth
-ln -s ../../src/auth.ts .claude-workspace/current/[task]/auth.ts
+ln -s ../../src/auth.ts .claude-workspace/task/[task]/auth.ts
 ```
 
 Add more symlinks as work progresses and needs become clear.
 
-#### Confirm Creation
+#### Confirm Creation (Gate 1)
+
+Display the full README content, then pause for user review:
 
 ```
-✓ Task created: current/[task-name]/
-✓ README documents objective and success criteria
-✓ Ready to work
+✓ Task created: task/[task-name]/
 
-As you work:
-- Create artifacts in archive/[type]/, symlink to task
-- Symlink deliverables for context (safe to edit)
-- Update README with "checkpoint" to save progress
+[Display full README.md content]
+
+Review the objective and success criteria above. Confirm to begin implementation.
 ```
+
+Do NOT proceed to implementation automatically. Wait for user confirmation. If the user requests changes, update the README and re-display.
 
 ### 4. Ready to Work
 
-Whether you resumed or created the task, you're now ready to start working. Use the symlinked files, create new artifacts in archive/ as needed, and remember to checkpoint progress to the README.
+**4A. After resume (3A):** If the README was re-gated (design decisions or reconcile changes detected), user confirmation was obtained in Step 3A. Otherwise, the README was approved in a prior session and has not been substantively modified. Proceed:
+```
+✓ Resuming task: [task-name]
+✓ Ready to continue work.
+```
+
+**4B. After create (3B):** Gate 1 is active — the flow is complete. The main context waits for user confirmation before invoking implement-task or proceeding with manual work.
 
 ## File Creation During Task (REQUIRED)
 
@@ -139,21 +169,21 @@ Whether you resumed or created the task, you're now ready to start working. Use 
 echo "content" > .claude-workspace/archive/[type]/filename
 
 # 2. Symlink to task
-ln -s ../../archive/[type]/filename .claude-workspace/current/[task]/filename
+ln -s ../../archive/[type]/filename .claude-workspace/task/[task]/filename
 ```
 
 ### Linking Deliverables (for context)
 
 ```bash
 # Link project file to task directory (safe to edit through symlink)
-ln -s ../../src/auth.ts .claude-workspace/current/[task]/auth.ts
+ln -s ../../src/auth.ts .claude-workspace/task/[task]/auth.ts
 ```
 
 **Path makes intent clear:**
 - `../../archive/` = artifact (created by Claude)
 - `../../src/`, `../../lib/`, etc. = deliverable (project file)
 
-**DO NOT create artifacts in `current/[task]/`** - Violates workspace architecture.
+**DO NOT create artifacts in `task/[task]/`** - Violates workspace architecture.
 
 ## Guidance
 

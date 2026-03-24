@@ -1,6 +1,8 @@
 # Checkpoint-Task Flow - Save Progress
 
-Update task README with progress notes for continuity.
+> **Execution:** Run inline in the main context.
+
+Update task README with progress notes and design decisions for continuity.
 
 ## Purpose
 Save current progress in task README for multi-session work or context switches.
@@ -8,6 +10,7 @@ Save current progress in task README for multi-session work or context switches.
 ## Outcome (Required)
 - [ ] Task README updated with new progress note
 - [ ] Progress note includes what was done and current state
+- [ ] Design decisions captured (if any divergences from specs occurred)
 - [ ] User knows progress was saved
 
 ## Constraints (Required)
@@ -20,13 +23,25 @@ Save current progress in task README for multi-session work or context switches.
 ### 1. Identify Active Task
 
 ```bash
-ls -d .claude-workspace/current/*/ 2>/dev/null
+ls -d .claude-workspace/task/*/ 2>/dev/null
 ```
 
 If no tasks: "No active task to checkpoint."
 If multiple: Ask which task to update.
 
-### 2. Add Progress Note
+### 2. Gather Context
+
+Build the progress note from available sources, in priority order:
+
+1. **Conversation context** — if the current conversation has implementation/discussion history, use it directly
+2. **TURNS.md** — if conversation context is missing (e.g., after `/clear`), read `task/[task-name]/TURNS.md` for turn-by-turn summaries since the last checkpoint
+3. **Git state** — `git diff` and `git log` since the last checkpoint timestamp can supplement either source
+
+If both conversation and TURNS.md are empty, there's nothing to checkpoint — say so and stop.
+
+After writing the progress note, **clear TURNS.md** (delete its contents or the file). The turn log has been distilled into the checkpoint; keeping stale entries causes confusion in the next cycle.
+
+### 3. Add Progress Note
 
 Append to the Progress Notes section in task README:
 
@@ -39,15 +54,41 @@ Append to the Progress Notes section in task README:
 **What to capture:**
 - What was accomplished since last update
 - Current state (completed, in-progress, blocked)
-- Any key decisions or findings
+- Key findings
 - Next steps if clear
 
 **Ordering:** List maintains chronological order (newest at bottom or use timestamps)
 
-### 3. Confirm Update
+### 3b. Capture Design Decisions (if any)
+
+If work since the last checkpoint involved intentional divergences from reference docs or specs, add entries to the `## Design Decisions` section:
+
+```markdown
+## Design Decisions
+
+### [Short title]
+- **Spec:** [What the reference doc says, with section ref]
+- **Decision:** [What we did instead]
+- **Rationale:** [Why]
+```
+
+If the README doesn't have a `## Design Decisions` section yet, create one between Success Criteria and Progress Notes.
+
+**When to add a design decision:**
+- You chose a different approach than what a design doc specifies
+- You deferred something the spec says to implement now
+- You added something not in any spec (and the choice is non-obvious)
+- You changed a convention from what docs describe
+
+**When NOT to add one:**
+- The spec doesn't cover it (nothing to diverge from)
+- It's a bug fix or straightforward implementation
+- It's already documented in a previous decision
+
+### 4. Confirm Update
 
 ```
-✓ Progress saved to: current/[task]/README.md
+✓ Progress saved to: task/[task]/README.md
 ✓ Task context preserved for next session
 ```
 
@@ -68,5 +109,8 @@ Simple list works. Optional: add timestamps for clarity.
 - 2025-10-31: Analyzed auth flow, found token validation issue
 - 2025-10-31: Created test script, confirmed bug, started fix
 ```
+
+**Design decisions vs progress notes:**
+Progress notes track what happened. Design decisions track why you diverged from a spec. If a decision also belongs in progress notes (because it was a significant milestone), reference it briefly in the progress note and put the full rationale in Design Decisions.
 
 **Note:** When task ends, README context informs git commit message.

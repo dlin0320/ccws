@@ -25,8 +25,8 @@ Clear definitions to avoid confusion:
 - Examples: source code, project tests, project documentation
 - Version controlled and shipped with project
 
-**Task** - A temporary unit of work with its own directory in `current/`.
-- Path: `current/[task-name]/`
+**Task** - A temporary unit of work with its own directory in `task/`.
+- Path: `task/[task-name]/`
 - Contains: README.md + symlinks (to artifacts AND/OR deliverables)
 - Lifecycle: Create → Work → Complete → Delete
 - Deletion safe: only removes directory with README and symlinks, never actual files
@@ -37,33 +37,35 @@ These rules define the workspace architecture and MUST be followed:
 
 ### 1. File Creation Architecture
 - ✅ **DO**: Create ALL files in `archive/[type]/`
-- ✅ **DO**: Symlink from archive to `current/[task]/`
-- ❌ **DON'T**: Create files directly in `current/[task]/` (except README.md)
+- ✅ **DO**: Symlink from archive to `task/[task]/`
+- ❌ **DON'T**: Create files directly in `task/[task]/` (except task management files: README.md, TURNS.md, FEEDBACK.md, SNAPSHOT.md, SUMMARY.md)
 - ❌ **DON'T**: Create files outside `.claude-workspace/`
 
 ```bash
 # CORRECT
 echo "content" > .claude-workspace/archive/scripts/test.sh
-ln -s ../../archive/scripts/test.sh .claude-workspace/current/my-task/test.sh
+ln -s ../../archive/scripts/test.sh .claude-workspace/task/my-task/test.sh
 
 # WRONG
-echo "content" > .claude-workspace/current/my-task/test.sh
+echo "content" > .claude-workspace/task/my-task/test.sh
 ```
 
 ### 2. Task Deletion
-- ✅ **DO**: Delete task directory when complete: `rm -rf current/[task]/`
+- ✅ **DO**: Delete task directory when complete: `rm -rf task/[task]/`
 - ✅ **DO**: Verify archive files remain untouched after deletion
 - ❌ **DON'T**: Delete or move archive files when completing tasks
-- ❌ **DON'T**: Leave completed task directories in current/
+- ❌ **DON'T**: Leave completed task directories in task/
 
 ### 3. Directory Structure
-- ✅ **DO**: Use `current/`, `archive/[types]/`, `checkpoint/` structure
+- ✅ **DO**: Use `task/`, `archive/[types]/` structure
 - ✅ **DO**: Organize archive by type: docs, scripts, reports, research
 - ❌ **DON'T**: Create custom top-level directories in workspace
 - ❌ **DON'T**: Reorganize archive structure without updating rules
+- ❌ **DON'T**: Nest task directories (e.g., `task/group/subname/` breaks symlink paths)
+- ✅ **DO**: Keep task directories exactly one level deep: `task/[task-name]/`
 
 ### 4. Symlink Pattern
-- ✅ **DO**: Use relative symlinks: `ln -s ../../archive/type/file current/task/file`
+- ✅ **DO**: Use relative symlinks: `ln -s ../../archive/type/file task/[task-name]/file`
 - ✅ **DO**: Symlink artifacts from archive/ to task
 - ✅ **DO**: Symlink project deliverables to task for context (read/write allowed)
 - ❌ **DON'T**: Use absolute paths in symlinks
@@ -72,10 +74,10 @@ echo "content" > .claude-workspace/current/my-task/test.sh
 **Symlinking project files:**
 ```bash
 # Link deliverable for context (safe to edit through symlink)
-ln -s ../../src/auth.ts .claude-workspace/current/auth-fix/auth.ts
+ln -s ../../src/auth.ts .claude-workspace/task/auth-fix/auth.ts
 
 # Link artifact (created in archive first)
-ln -s ../../archive/docs/auth-analysis.md .claude-workspace/current/auth-fix/auth-analysis.md
+ln -s ../../archive/docs/auth-analysis.md .claude-workspace/task/auth-fix/auth-analysis.md
 ```
 
 Path makes intent clear: `../../src/` = deliverable, `../../archive/` = artifact
@@ -114,7 +116,7 @@ Tags: [Keywords]
 
 ## Directory Reference
 
-### current/ - Active Tasks
+### task/ - Active Tasks
 Contents: README.md (task-specific) + symlinks to archive files
 Lifecycle: Create → Work → Checkpoint → Delete
 
@@ -140,8 +142,8 @@ Aggressive cleanup for lean workspace:
 
 ## Task Lifecycle
 
-1. **Start**: Create `current/[task]/` with README
+1. **Start**: Create `task/[task]/` with README
 2. **Work**: Create artifacts in `archive/[type]/`, symlink to task
 3. **Checkpoint**: Update README with progress notes (anytime)
-4. **Complete**: Git commit (if deliverables changed) + delete `current/[task]/`
+4. **Complete**: Git commit (if deliverables changed) + delete `task/[task]/`
 5. **Resume**: Read task README, git log, or search archive

@@ -15,15 +15,18 @@ Practical patterns for task-based workflow with symlinks.
 
 **Actions:**
 1. Create task: "start task" → interactive flow
-2. Create `current/auth-debug/README.md` with objectives
+2. Create `task/auth-debug/README.md` with objectives
 3. Work in task context
 
 ```bash
 # Task creation
-mkdir -p .claude-workspace/current/auth-debug
+mkdir -p .claude-workspace/task/auth-debug
+```
 
+```
 # README with context
-cat > .claude-workspace/current/auth-debug/README.md << EOF
+Write .claude-workspace/task/auth-debug/README.md
+
 # Task: auth-debug
 
 **Started:** 2025-10-28 14:30
@@ -39,7 +42,6 @@ Mobile auth works reliably, root cause identified
 
 ## Progress Notes
 <!-- Added with "checkpoint" command -->
-EOF
 ```
 
 ## Creating Artifacts During Tasks
@@ -56,7 +58,7 @@ Write .claude-workspace/archive/docs/mobile-auth-analysis.md
 
 # 2. Symlink to task
 ln -s ../../archive/docs/mobile-auth-analysis.md \
-      .claude-workspace/current/auth-debug/analysis.md
+      .claude-workspace/task/auth-debug/analysis.md
 ```
 
 **Result:** Artifact accessible in task, preserved in archive after task deletion
@@ -69,7 +71,7 @@ ln -s ../../archive/docs/mobile-auth-analysis.md \
 ```bash
 # Link project file to task directory (safe to edit through symlink)
 ln -s ../../src/auth.ts \
-      .claude-workspace/current/auth-debug/auth.ts
+      .claude-workspace/task/auth-debug/auth.ts
 
 # Edit through symlink - changes go to actual file
 # Path makes it clear: ../../src/ = deliverable
@@ -88,7 +90,7 @@ Write .claude-workspace/archive/scripts/test-mobile-auth.sh
 
 # Symlink to task
 ln -s ../../archive/scripts/test-mobile-auth.sh \
-      .claude-workspace/current/auth-debug/test-script.sh
+      .claude-workspace/task/auth-debug/test-script.sh
 
 # Make executable (on archive file)
 chmod +x .claude-workspace/archive/scripts/test-mobile-auth.sh
@@ -135,21 +137,23 @@ Mobile auth works reliably, root cause identified
 # Check git commits
 git log --oneline --grep="auth" -10
 git log --oneline --grep="Task:" -10
+```
 
+```
 # Search archive for auth-related artifacts
-find .claude-workspace/archive/ -name "*auth*" -type f
+Glob "*auth*" in .claude-workspace/archive/
 
 # Search artifact contents
-grep -r "authentication" .claude-workspace/archive/docs/
+Grep "authentication" in .claude-workspace/archive/docs/
 
 # Check active tasks
-ls .claude-workspace/current/
+Bash: ls .claude-workspace/task/
 ```
 
 **Context sources:**
 - Git commits = completed work on deliverables
 - Archive = artifacts from past work
-- current/ = active WIP
+- task/ = active WIP
 
 ## Resuming After Context Reset
 
@@ -160,12 +164,12 @@ ls .claude-workspace/current/
 2. Read task README for context
 3. Continue from Progress Notes
 
-```bash
+```
 # Check if task still active
-ls .claude-workspace/current/
+Bash: ls .claude-workspace/task/
 
 # Read README to understand current state
-cat .claude-workspace/current/auth-debug/README.md
+Read .claude-workspace/task/auth-debug/README.md
 
 # Progress Notes show latest state and next steps
 # Continue from there
@@ -202,7 +206,7 @@ EOF
 )"
 
 # Delete task directory (only README and symlinks)
-rm -rf .claude-workspace/current/auth-debug
+rm -rf .claude-workspace/task/auth-debug
 
 # Artifacts preserved in archive:
 # - archive/docs/mobile-auth-analysis.md
@@ -221,11 +225,11 @@ rm -rf .claude-workspace/current/auth-debug
 **Actions:**
 ```bash
 # Starting task "improve-auth"
-mkdir -p .claude-workspace/current/improve-auth
+mkdir -p .claude-workspace/task/improve-auth
 
 # Link existing analysis from archive
 ln -s ../../archive/docs/mobile-auth-analysis.md \
-      .claude-workspace/current/improve-auth/previous-analysis.md
+      .claude-workspace/task/improve-auth/previous-analysis.md
 
 # Create modified version if needed
 cp .claude-workspace/archive/docs/mobile-auth-analysis.md \
@@ -238,7 +242,7 @@ cp .claude-workspace/archive/docs/mobile-auth-analysis.md \
 **Scenario:** Different agent/session needs to continue
 
 **What receiving agent does:**
-1. Check for active tasks: `ls .claude-workspace/current/`
+1. Check for active tasks: `ls .claude-workspace/task/`
 2. Read task README for context
 3. Check git log for recent work: `git log --oneline -10`
 4. Search archive for relevant artifacts
@@ -283,7 +287,7 @@ git log --oneline --all -- "description of artifact"
 - Artifacts: Archive files (permanent, reusable)
 
 **Clean Workspace:**
-- Active work in `current/` (temporary)
+- Active work in `task/` (temporary)
 - Reusable artifacts in `archive/` (permanent)
 - Completed work in git history (permanent)
 - Aggressive task cleanup (30 days, 50MB thresholds)

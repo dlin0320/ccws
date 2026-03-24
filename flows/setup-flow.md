@@ -20,11 +20,11 @@ If exists: Ask if user wants to reconfigure (backup existing to `.claude-workspa
 ### 2. Create Directory Structure
 
 ```bash
-mkdir -p .claude-workspace/current .claude-workspace/archive/docs .claude-workspace/archive/scripts .claude-workspace/archive/reports .claude-workspace/archive/research
+mkdir -p .claude-workspace/task .claude-workspace/archive/docs .claude-workspace/archive/scripts .claude-workspace/archive/reports .claude-workspace/archive/research
 ```
 
 Creates structure:
-- **current/** - Active tasks (README + symlinks)
+- **task/** - Active tasks (README + symlinks)
 - **archive/** - Permanent artifacts by type:
   - **docs/** - Documentation, analysis, architecture
   - **scripts/** - Reusable automation, utilities
@@ -42,28 +42,49 @@ Check if `.gitignore` exists:
 grep -q "^\.claude-workspace/" .gitignore 2>/dev/null || echo ".claude-workspace/" >> .gitignore
 ```
 
-### 4. Update Global Claude.md
+### 4. Configure Turn Logging
 
-Append workspace section to `~/.claude/Claude.md` if not already present:
+Check if a project-level `CLAUDE.md` exists and whether it already contains a turn-logging directive:
 
 ```bash
-# Check if workspace section already exists
-if grep -q "^# Claude Code Workspace" ~/.claude/Claude.md 2>/dev/null; then
-  echo "Workspace conventions already in global Claude.md"
-else
-  # Create ~/.claude/ if it doesn't exist
-  mkdir -p ~/.claude
-
-  # Append with proper spacing
-  echo "" >> ~/.claude/Claude.md
-  echo "" >> ~/.claude/Claude.md
-  cat ~/.claude/skills/ccws/references/claude-md.md >> ~/.claude/Claude.md
-
-  echo "✓ Added workspace conventions to ~/.claude/Claude.md"
-fi
+grep -q "TURNS.md" CLAUDE.md 2>/dev/null
 ```
 
-**Note:** This makes workspace conventions global - they apply to all projects where you create a `.claude-workspace/`.
+If the directive is already present: skip this step.
+
+If absent (or `CLAUDE.md` doesn't exist): append the following block to `CLAUDE.md` (create the file if needed):
+
+```markdown
+## CCWS Turn Logging
+
+When a task is active under `.claude-workspace/task/`, log a summary to that task's `TURNS.md` after each substantive turn.
+
+**When to log:** After completing a meaningful unit of work (not after every tool call). Examples: implemented a function, fixed a bug, completed a research step, made a design decision.
+
+**Format:**
+
+    ### YYYY-MM-DD HH:MM [tag]
+    One-line summary of what was done. Key files or decisions if notable.
+
+**Tags:** Use the flow name when running inside a ccws flow (`[implement-task]`, `[review-task]`, `[reconcile-task]`, `[reconcile-task:fix-code]`). Use `[manual]` for ad-hoc work outside a flow.
+
+**Example:**
+
+    ### 2025-11-15 14:30 [implement-task]
+    Implemented token refresh logic in src/auth.ts. Added retry with exponential backoff per spec §3.
+
+**Do not log:** File reads, searches, minor edits, or turns where no meaningful progress was made.
+
+## Maintaining This File
+
+When working on tasks, add project knowledge to this file that would help future sessions avoid repeated discovery:
+- Build, test, and run commands
+- Project conventions not obvious from code alone
+- Environment setup requirements or gotchas
+- Integration points with external systems
+
+Do not add: task-specific state, information already in code/docs, or ephemeral details. Keep entries concise.
+```
 
 ### 5. Completion
 
@@ -71,17 +92,12 @@ Inform user:
 
 ```
 ✓ Workspace created: .claude-workspace/
-✓ Structure: current/ (active tasks), archive/ (permanent artifacts)
+✓ Structure: task/ (active tasks), archive/ (permanent artifacts)
 ✓ .gitignore: updated
-✓ Global conventions: ~/.claude/Claude.md (applies to all projects)
+✓ CLAUDE.md: turn logging configured
 
-Workspace ready! Start a task with "start task" or "start working on [X]"
-
-Context preservation:
-- WIP: Task README (updated with "checkpoint")
-- Completed work: Git commits
-- Artifacts: Persist in archive/
-
-Project-specific context can go in project CLAUDE.md.
-Global workspace conventions are in ~/.claude/Claude.md.
+Workspace ready! Use ccws flows to manage tasks:
+- start-task: Begin or resume work
+- checkpoint-task: Save progress
+- end-task: Commit + clean up
 ```
