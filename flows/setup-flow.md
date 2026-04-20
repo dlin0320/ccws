@@ -34,47 +34,44 @@ Creates structure:
 ### 3. Update .gitignore
 
 Check if `.gitignore` exists:
-- If yes: Append `.claude-workspace/` if not already present
-- If no: Create with `.claude-workspace/`
+- If yes: Append `.claude-workspace` if not already present
+- If no: Create with `.claude-workspace`
 
 ```bash
-# Check and append
-grep -q "^\.claude-workspace/" .gitignore 2>/dev/null || echo ".claude-workspace/" >> .gitignore
+# Check and append — NO trailing slash, so the pattern matches both real dirs (main repo) and symlinks (worktrees)
+grep -qE "^\.claude-workspace/?$" .gitignore 2>/dev/null || echo ".claude-workspace" >> .gitignore
 ```
 
-### 4. Configure Turn Logging
+**Why no trailing slash:** prep-task symlinks `.claude-workspace` into each worktree. Git's `.gitignore` pattern `foo/` only matches actual directories, not symlinks-to-directories — so worktrees would see the symlink as untracked. The pattern `.claude-workspace` (no slash) matches both.
 
-Check if a project-level `CLAUDE.md` exists and whether it already contains a turn-logging directive:
+### 4. Install Turn-Logging Hook
 
-```bash
-grep -q "TURNS.md" CLAUDE.md 2>/dev/null
+Resolve the ccws skill directory — the parent of the directory containing this flow file. If setup-flow.md lives at `<skill-dir>/flows/setup-flow.md`, the hook script is at `<skill-dir>/hooks/turn-log.sh`. Use the absolute path.
+
+Ensure the project has `.claude/settings.json` (create if absent). Merge the following hook entries under `hooks.Stop` and `hooks.SubagentStop` without clobbering existing hooks:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "<skill-dir>/hooks/turn-log.sh" }] }
+    ],
+    "SubagentStop": [
+      { "hooks": [{ "type": "command", "command": "<skill-dir>/hooks/turn-log.sh" }] }
+    ]
+  }
+}
 ```
 
-If the directive is already present: skip this step.
+The hook appends a one-line entry to the active task's TURNS.md after each main-session turn (`Stop`) and each subagent completion (`SubagentStop`). Task resolution is worktree-native: the hook reads the current git branch and writes to `.claude-workspace/task/<branch>/TURNS.md`. If no matching task dir exists, the hook silently exits — non-task chores produce no noise.
 
-If absent (or `CLAUDE.md` doesn't exist): append the following block to `CLAUDE.md` (create the file if needed):
+See `references/patterns.md § Turn Logging` for the entry format the hook produces.
+
+### 5. Configure Project CLAUDE.md
+
+Ensure the project has a `CLAUDE.md` file (create if absent). Append the following block if it's not already present:
 
 ```markdown
-## CCWS Turn Logging
-
-When a task is active under `.claude-workspace/task/`, log a summary to that task's `TURNS.md` after each substantive turn.
-
-**When to log:** After completing a meaningful unit of work (not after every tool call). Examples: implemented a function, fixed a bug, completed a research step, made a design decision.
-
-**Format:**
-
-    ### YYYY-MM-DD HH:MM [tag]
-    One-line summary of what was done. Key files or decisions if notable.
-
-**Tags:** Use the flow name when running inside a ccws flow (`[implement-task]`, `[review-task]`, `[reconcile-task]`, `[reconcile-task:fix-code]`). Use `[manual]` for ad-hoc work outside a flow.
-
-**Example:**
-
-    ### 2025-11-15 14:30 [implement-task]
-    Implemented token refresh logic in src/auth.ts. Added retry with exponential backoff per spec §3.
-
-**Do not log:** File reads, searches, minor edits, or turns where no meaningful progress was made.
-
 ## Maintaining This File
 
 When working on tasks, add project knowledge to this file that would help future sessions avoid repeated discovery:
@@ -86,18 +83,31 @@ When working on tasks, add project knowledge to this file that would help future
 Do not add: task-specific state, information already in code/docs, or ephemeral details. Keep entries concise.
 ```
 
-### 5. Completion
+### 6. Commit Setup Artifacts
+
+Stage and commit the tracked setup files so future worktrees inherit them:
+
+```bash
+git add .gitignore .claude/settings.json CLAUDE.md
+git commit -m "ccws setup: workspace, hooks, gitignore"
+```
+
+**Why commit now:** prep-task creates worktrees from `main` (or the default branch). If `.gitignore` isn't committed, new worktrees won't ignore the `.claude-workspace` symlink and it'll show as untracked. Committing before the first worktree is created avoids this. If the user prefers to review before committing, skip this step and tell them to commit manually.
+
+### 7. Completion
 
 Inform user:
 
 ```
 ✓ Workspace created: .claude-workspace/
 ✓ Structure: task/ (active tasks), archive/ (permanent artifacts)
-✓ .gitignore: updated
-✓ CLAUDE.md: turn logging configured
+✓ .gitignore: updated (no trailing slash — matches symlinks in worktrees)
+✓ Hook installed: .claude/settings.json (Stop + SubagentStop → turn-log.sh)
+✓ CLAUDE.md: maintenance guidance added
+✓ Committed: .gitignore, .claude/settings.json, CLAUDE.md
 
 Workspace ready! Use ccws flows to manage tasks:
-- start-task: Begin or resume work
+- prep-task: Begin a new task (creates branch + worktree)
 - checkpoint-task: Save progress
-- end-task: Commit + clean up
+- end-task: Commit, push, open PR
 ```

@@ -1,43 +1,48 @@
-# End-Task Flow - Finish and Clean Up
+# End-Task Flow - Commit, Push, Open PR
 
 > **Execution:** Run inline in the main context.
 
-End task with git commit (if deliverables changed) and delete task directory.
+Finalize the task: commit deliverable changes, push the branch, open a pull request. Worktree and task directory cleanup are deferred until after the PR merges.
 
 ## Purpose
-Finalize completed work, preserve it in git history, and clean up task directory.
+Close out the work-producing phase of the task cycle. Commits capture deliverable changes, the PR enables external review and merge, and the task dir + worktree remain for reference until the change lands.
 
 ## Outcome (Required)
-- [ ] Git commit created (if deliverables were modified)
-- [ ] Task directory deleted: `task/[task-name]/`
-- [ ] Artifacts remain in archive/
-- [ ] User knows task is complete
+- [ ] Git commit(s) created for any deliverable changes
+- [ ] Branch pushed to origin
+- [ ] Pull request opened with SUMMARY.md as body (if available) or a README-derived summary
+- [ ] User knows the PR URL and what's pending post-merge
 
 ## Constraints (REQUIRED)
-Per workspace REQUIRED RULES:
-- MUST delete task directory when complete
+- MUST NOT delete task directory (cleanup happens post-merge, outside end-task)
 - MUST NOT delete or move archive files
-- MUST NOT leave completed task directories in task/
+- MUST NOT force-push unless the user explicitly authorizes it
+- MUST use `gh pr create` rather than manually constructing a URL
+- Worktree mode is the default; direct-branch (non-worktree) mode is supported but unusual
 
 ## Process
 
-### 1. Check for Active Task
+### 1. Verify Task Context
 
 ```bash
-ls -d .claude-workspace/task/*/ 2>/dev/null
+branch=$(git rev-parse --abbrev-ref HEAD)
+main_repo=$(git rev-parse --show-toplevel)
+workspace="$main_repo/.claude-workspace"
+task_dir="$workspace/task/$branch"
 ```
 
-If no tasks: "No active tasks to end."
-If multiple: Ask which to end.
+If `$task_dir` doesn't exist: "No matching task for branch `$branch`. Was prep-task run?"
+
+If `$branch` is the main/default branch (e.g., `main`, `master`): "Refusing to end-task on the main branch. Create a feature branch first."
 
 ### 2. Check for Unresolved Findings
 
-If `FEEDBACK.md` exists in the task directory, scan for unresolved actionable findings:
+If `FEEDBACK.md` exists in the task dir, scan for unresolved actionable findings:
 - Count findings with category `DIVERGENCE`, `UNDOCUMENTED`, or `MISSING`
 - Exclude `DOCUMENTED` (resolved), `STUB` (intentionally deferred), `EXTRA` (informational)
-- Check if a reconcile progress note exists in the README that post-dates the FEEDBACK.md (suggesting reconciliation happened)
+- Check if a reconcile progress note in the README post-dates FEEDBACK.md
 
-If unresolved findings exist AND no post-FEEDBACK.md reconcile note found:
+If unresolved findings exist AND no post-FEEDBACK.md reconcile note:
 ```
 ⚠ FEEDBACK.md contains N unresolved findings:
   - X DIVERGENCE (contradicts spec)
@@ -46,9 +51,9 @@ If unresolved findings exist AND no post-FEEDBACK.md reconcile note found:
 Consider running reconcile-task before ending. Proceed anyway? (yes/no)
 ```
 If no: stop and suggest running reconcile-task.
-If yes: proceed (user accepts the risk).
+If yes: proceed.
 
-If `FEEDBACK.md` does not exist: proceed silently (review was never run, which is a valid workflow for simple tasks).
+If `FEEDBACK.md` does not exist: proceed silently (review was never run, valid for simple tasks).
 
 ### 3. Check for Deliverable Changes
 
@@ -56,87 +61,126 @@ If `FEEDBACK.md` does not exist: proceed silently (review was never run, which i
 git status
 ```
 
-Were project files (deliverables) modified during this task?
+- **Uncommitted changes** → Step 4 (create commits)
+- **Clean tree but unpushed commits on the branch** → skip to Step 5 (push)
+- **Clean tree and no unpushed commits** → "Nothing to finalize." Exit — no PR needed.
 
-**If YES** → Proceed to Step 4 (Git Commit)
-**If NO** (only artifacts created) → Skip to Step 5 (Delete Task)
+### 4. Create Commits
 
-### 4. Create Git Commits
+Avoid bloated unified commits. **One commit per logical unit** when changes separate cleanly.
 
-Avoid bloated unified commits. Create **one commit per logical unit** when possible.
-
-#### 4a. Determine Commit Strategy
+#### 4a. Determine Strategy
 
 Read context sources in priority order:
 1. **SUMMARY.md** (if exists) — "Files Changed" section groups changes by logical component
 2. **README progress notes** — each implement/reconcile progress note = one logical unit
-3. **git diff** — what actually changed
+3. **git diff** — ground truth
 
-**If changes separate cleanly** (different files per logical unit):
-- Create one commit per logical unit
-- Each commit message derived from that unit's context
+**If changes separate cleanly** (different files per unit): one commit per unit.
+**If changes are interleaved** (same files across units): one structured commit.
 
-**If changes are interleaved** (same files modified across multiple units):
-- Create a single commit with a structured message listing the logical units
-
-#### 4b. Create Commits
+#### 4b. Write Commits
 
 For each logical unit (or single commit if interleaved):
 
 ```bash
 git add [relevant deliverables]
 git commit -m "$(cat <<'EOF'
-[Concise summary of this logical unit]
+{type}: {concise summary of this unit}
 
-[What was done — from SUMMARY.md section or progress note]
-[Key decisions if relevant]
+{Body from SUMMARY.md section or progress note}
+{Key decisions if relevant}
 
-Task: [task-name]
+Task: {branch}
 EOF
 )"
 ```
 
+The subject uses the branch's conventional-commit prefix (`feat:`, `fix:`, `refactor:`, etc.) derived from the branch name.
+
 **Commit message sources:**
-- **If SUMMARY.md exists:** summary line from Objective, body from "What Was Built" sections, key decisions noted
+- **If SUMMARY.md exists:** subject from Objective, body from "What Was Built" sections, key decisions noted
 - **If no SUMMARY.md:** fall back to README objective + progress notes
 
-### 5. Delete Task Directory (REQUIRED)
+### 5. Push Branch
 
 ```bash
-rm -rf .claude-workspace/task/[task-name]
+git push -u origin "$branch"
 ```
 
-**What gets deleted:**
-- Task directory with README
-- All symlinks in task directory
+If push fails because the remote has new commits the local branch doesn't have: fetch, rebase onto `origin/$branch`, resolve any conflicts, then retry. **Do NOT force-push** unless the user explicitly authorizes it for this branch.
 
-**What remains:**
-- ALL artifacts in `archive/` - NEVER deleted
-- Project deliverables (modified via symlinks, now committed)
-- Git history (if commit was made)
+If push fails because the branch has no upstream configured: the `-u` flag handles it. If the remote rejects due to protected-branch rules, surface the error and stop.
 
-### 6. Confirm Completion
+### 6. Open Pull Request
+
+Derive title and body from available context:
+
+- **Title:** `{type}: {name-as-sentence}`. E.g., branch `feat/auth-refresh` → `feat: auth refresh`.
+- **Base branch:** the project's main branch (detect: `main` or `master`; respect `gh` default if configured).
+- **Body:**
+  - Prefer `$task_dir/SUMMARY.md` if it exists (run summarize-task first for best results).
+  - Otherwise construct from README Objective + Progress Notes.
+
+```bash
+base=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null || echo main)
+
+if [ -f "$task_dir/SUMMARY.md" ]; then
+  gh pr create --base "$base" --head "$branch" \
+    --title "{type}: {name-as-sentence}" \
+    --body-file "$task_dir/SUMMARY.md"
+else
+  gh pr create --base "$base" --head "$branch" \
+    --title "{type}: {name-as-sentence}" \
+    --body "$(cat <<'EOF'
+## Summary
+{Objective from README}
+
+## Changes
+{Progress notes from README, bulletized}
+
+## Test plan
+- [ ] {items}
+EOF
+)"
+fi
+```
+
+If `gh pr create` fails (auth missing, no remote, etc.): print the error and the full command so the user can run it manually. Capture the PR URL from a successful run.
+
+### 7. Confirm Completion
 
 ```
-✓ Task "[task-name]" completed
-[If git commit]: ✓ Changes committed: [commit summary]
-✓ Task directory removed
-✓ Artifacts preserved in archive/
+✓ Task "{branch}" finalized
+✓ Commits pushed: {N} to origin/{branch}
+✓ PR opened: {url}
 
-Context preserved in:
-- Git commit (deliverable changes)
-- Archive files (artifacts)
+Task directory and worktree remain until the PR merges. After merge, clean up with:
+  git worktree remove {worktree-path}
+  rm -rf {main_repo}/.claude-workspace/task/{branch}
 ```
 
 ## Guidance
 
 **When to end a task:**
 - Success criteria from README are met
-- Work is done (or abandoned)
-- Ready to move on to something else
+- Reconcile has run (or the user accepts unresolved findings)
+- Work is ready for external review
 
-**If task isn't done yet:**
-Use "checkpoint" to save progress instead - keeps task active for next session.
+**If work isn't done yet:**
+Use checkpoint-task to save progress — keeps the task active and doesn't open a PR.
 
-**Archive persistence:**
-Artifacts remain available for future tasks - no need to recreate analysis or scripts.
+**Draft PRs:**
+If the user wants an early-feedback draft, add `--draft` to `gh pr create`. Otherwise default to ready-for-review.
+
+**PR body vs SUMMARY.md:**
+SUMMARY.md is the authoritative PR body. If absent, end-task falls back to README, but running summarize-task first yields a significantly better PR description.
+
+**Cleanup is separate:**
+Worktree removal and task dir deletion happen **after** the PR merges, not here. The current flow leaves both in place so the user can reference them while the PR is in review. Future work: a dedicated cleanup-task flow triggered on merge.
+
+**Non-worktree mode:**
+If the current dir is not a worktree (rare — typically when a user has been working directly on a branch in the main repo), end-task still commits, pushes, and opens the PR. Task dir cleanup is still deferred until after merge.
+
+**No remote:**
+If the project has no git remote, end-task skips Step 5 and 6 entirely. It commits locally and notes that push + PR must be done manually once a remote exists.

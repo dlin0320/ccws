@@ -1,6 +1,6 @@
 # Workspace Rules
 
-Conventions for `.claude-workspace/` with symlink-based task organization.
+Structural invariants for `.claude-workspace/`. These define the workspace architecture — what must always be true regardless of which flows are used.
 
 ## Terminology
 
@@ -65,54 +65,15 @@ echo "content" > .claude-workspace/task/my-task/test.sh
 - ✅ **DO**: Keep task directories exactly one level deep: `task/[task-name]/`
 
 ### 4. Symlink Pattern
-- ✅ **DO**: Use relative symlinks: `ln -s ../../archive/type/file task/[task-name]/file`
+- ✅ **DO**: Use relative symlinks from `task/[task-name]/` to the target
 - ✅ **DO**: Symlink artifacts from archive/ to task
 - ✅ **DO**: Symlink project deliverables to task for context (read/write allowed)
 - ❌ **DON'T**: Use absolute paths in symlinks
 - ❌ **DON'T**: Move or rename project files through symlinks
 
-**Symlinking project files:**
-```bash
-# Link deliverable for context (safe to edit through symlink)
-ln -s ../../src/auth.ts .claude-workspace/task/auth-fix/auth.ts
+For path construction details, see `references/patterns.md § Symlink Construction`.
 
-# Link artifact (created in archive first)
-ln -s ../../archive/docs/auth-analysis.md .claude-workspace/task/auth-fix/auth-analysis.md
-```
-
-Path makes intent clear: `../../src/` = deliverable, `../../archive/` = artifact
-
-## RECOMMENDED PATTERNS (Best Practices)
-
-These patterns improve workspace usage but can be adapted:
-
-### Task Naming
-- Use kebab-case: `auth-refactor`, `bug-fix-1234`
-- Keep names simple and descriptive
-- One conceptual unit per task
-
-### File Naming
-- Lowercase with hyphens: `auth-analysis.md`
-- Descriptive, not generic: ~~`notes.md`~~, ~~`temp.txt`~~
-- Date prefix for time-sensitive: `2025-10-28-coverage.html`
-
-### Checkpoint Usage
-- Save progress before context switches
-- Latest checkpoint = source of truth
-- Keep recent 10-20, archive older ones
-
-### File Metadata
-Add header to documentation for searchability:
-```markdown
-<!--
-Purpose: [What this file does]
-Created: [YYYY-MM-DD]
-Task: [Associated task]
-Tags: [Keywords]
--->
-```
-
----
+For conventions (naming, concurrent tasks, checkpoints, file metadata), see `references/patterns.md § Conventions`.
 
 ## Directory Reference
 
@@ -140,10 +101,10 @@ Aggressive cleanup for lean workspace:
 - **Size**: Review when archive/ >50MB
 - **Tasks**: Delete immediately after completion (REQUIRED)
 
-## Task Lifecycle
+### Cleanup Procedure
+When thresholds are hit:
+1. **Identify candidates**: `find .claude-workspace/archive/ -mtime +30 -type f` (or check `du -sh .claude-workspace/archive/`)
+2. **Check for active references**: For each candidate, verify no active task symlinks point to it: `find .claude-workspace/task/ -type l -exec readlink {} \; | grep [candidate-filename]`
+3. **Review before deleting**: Never auto-delete. Present the list to the user with file sizes and last-modified dates
+4. **Delete confirmed files only**: Remove from archive/; any dangling symlinks in active tasks will be caught by prep-task's broken symlink check
 
-1. **Start**: Create `task/[task]/` with README
-2. **Work**: Create artifacts in `archive/[type]/`, symlink to task
-3. **Checkpoint**: Update README with progress notes (anytime)
-4. **Complete**: Git commit (if deliverables changed) + delete `task/[task]/`
-5. **Resume**: Read task README, git log, or search archive

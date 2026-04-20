@@ -61,29 +61,7 @@ Append to the Progress Notes section in task README:
 
 ### 3b. Capture Design Decisions (if any)
 
-If work since the last checkpoint involved intentional divergences from reference docs or specs, add entries to the `## Design Decisions` section:
-
-```markdown
-## Design Decisions
-
-### [Short title]
-- **Spec:** [What the reference doc says, with section ref]
-- **Decision:** [What we did instead]
-- **Rationale:** [Why]
-```
-
-If the README doesn't have a `## Design Decisions` section yet, create one between Success Criteria and Progress Notes.
-
-**When to add a design decision:**
-- You chose a different approach than what a design doc specifies
-- You deferred something the spec says to implement now
-- You added something not in any spec (and the choice is non-obvious)
-- You changed a convention from what docs describe
-
-**When NOT to add one:**
-- The spec doesn't cover it (nothing to diverge from)
-- It's a bug fix or straightforward implementation
-- It's already documented in a previous decision
+If work since the last checkpoint involved intentional divergences from reference docs or specs, update the README per `references/patterns.md § Design Decisions`.
 
 ### 4. Confirm Update
 

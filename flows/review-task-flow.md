@@ -53,7 +53,7 @@ ls -la .claude-workspace/task/[task-name]/
 - If a prior FEEDBACK.md exists in the task directory, read it to distinguish new vs previously identified findings
 - Check for SNAPSHOT.md in the task directory:
   - **If missing**: Warn: "No SNAPSHOT.md found. Run snapshot-task first for better review quality, or proceed without it." Wait for user confirmation before continuing.
-  - **If exists**: Read it and check the `Updated:` timestamp. If the timestamp is more than 24 hours old, or if `git log --since` shows changes to implementation files since that timestamp, note: "SNAPSHOT.md may be stale (last updated [date]). Consider re-running snapshot-task." Proceed but note the staleness in the FEEDBACK.md summary.
+  - **If exists**: Read it and check the `Updated:` timestamp. If `git log --since` shows changes to implementation files since that timestamp, note: "SNAPSHOT.md may be stale (last updated [date]). Consider re-running snapshot-task." Proceed but note the staleness in the FEEDBACK.md summary.
 
 ### 2. Gather Reference Material
 
@@ -75,9 +75,9 @@ Read all reference docs. Extract **verifiable assertions** relevant to the task'
 
 Auto-discover design and architecture docs in the repo:
 
-```bash
+```
 # Search for design/spec docs by filename
-find . -name "*.md" -not -path "./.claude-workspace/*" -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./vendor/*" | head -50
+Glob "**/*.md" (exclude .claude-workspace/, .git/, node_modules/, vendor/)
 ```
 
 Filter for docs likely to contain specs — look for filenames or content containing: architecture, design, requirements, RFC, ADR, spec, overview, migration, observability.
@@ -114,7 +114,7 @@ Classify findings:
 | `[STUB]` | Intentionally deferred — code has stub/TODO comment or spec marks it as future work |
 | `[EXTRA]` | Implementation includes something not covered by the spec (informational, not necessarily wrong) |
 
-**Build check**: If the project has a recognizable build command (`go build ./...`, `cargo build`, `npm run build`, `make build`, etc.), run it as a sanity check and note any failures.
+**Build check**: Verify the project builds successfully and note any failures.
 
 ### 4. Verify Task README Claims
 
@@ -162,23 +162,15 @@ Use the following format:
 |-------|---------|-------|
 ```
 
-### 6. Log Turns
+### 6. Return Summary
 
-Append turn entries to TURNS.md at natural milestones during the review:
-
-```markdown
-### YYYY-MM-DD HH:MM [review-task]
-Reviewed [N packages/files] against [reference docs]. Found [N] findings: [brief breakdown]. FEEDBACK.md written.
-```
-
-Log at meaningful points — e.g., after scanning each major package or completing assertion extraction — not after every file read.
-
-### 7. Return Summary
-
-Print a one-line summary to the user:
+Report to the main context:
 
 ```
 ✓ Review complete: N findings (X divergences, Y documented, Z undocumented, M missing, S stubs) → task/[task-name]/FEEDBACK.md
+  Assertions extracted: N from M reference docs
+  Files read: N implementation files
+  Snapshot: current | stale (date) | none
 ```
 
 ## Guidance

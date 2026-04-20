@@ -2,7 +2,7 @@
 
 > **Execution:** Run inline in the main context.
 
-Generate a structured implementation snapshot for the active task. This snapshot serves as pre-built context for subagent flows (review, reconcile) and for resuming work in new sessions.
+Generate a structured implementation snapshot for the active task. This snapshot serves as pre-built context for other flows (review, reconcile) and for resuming work in new sessions.
 
 ## Purpose
 Capture the current state of the implementation so that future sessions and subagents can skip codebase discovery and go straight to analysis.
@@ -91,5 +91,5 @@ Checkpoint captures narrative (what happened, why). Snapshot captures structure 
 **Staleness:**
 A stale snapshot is better than no snapshot — subagents can verify claims against actual code. But if the implementation has changed significantly since the last snapshot, re-run before spawning heavy flows.
 
-**How subagents use it:**
-When spawning review-task or reconcile-task, the main context should read SNAPSHOT.md and include it in the subagent prompt as implementation context. This lets the agent skip discovery and go straight to analysis.
+**How other flows use it:**
+When spawning review-task as a subagent, the main context should read SNAPSHOT.md and include it in the agent prompt as implementation context. For inline flows like reconcile-task, SNAPSHOT.md is available directly in the task directory. Either way, this lets the flow skip discovery and go straight to analysis.

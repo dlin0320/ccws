@@ -1,6 +1,6 @@
 # Reconcile-Task Flow - Resolve Review Findings
 
-> **Execution:** Run as a subagent. This flow reads FEEDBACK.md, specs, and source files, and makes edits across multiple files.
+> **Execution:** Run inline in the main context.
 
 Resolve divergences from a review by fixing code, updating specs, or documenting decisions.
 
@@ -104,14 +104,7 @@ For each resolution:
 - Grep for cross-references to the changed section and update those too
 
 **document:**
-- Add a Design Decision entry to the task README:
-  ```markdown
-  ### [Finding title]
-  - **Spec:** [What the spec says — from finding's Reference field]
-  - **Decision:** [What the implementation does — from finding's description]
-  - **Rationale:** [Why — from user input or finding context]
-  ```
-- If `## Design Decisions` section doesn't exist, create it between Success Criteria and Progress Notes
+- Add a Design Decision entry to the task README per `references/patterns.md § Design Decisions`
 
 **defer:**
 - Add to the Deferred Items table in FEEDBACK.md (if it exists)
@@ -128,21 +121,7 @@ Append a progress note summarizing the reconciliation:
 - [Brief summary of key resolutions]
 ```
 
-### 5. Log Turns
-
-Append turn entries to TURNS.md at natural milestones during reconciliation:
-
-```markdown
-### YYYY-MM-DD HH:MM [reconcile-task:fix-code]
-Fixed F2: LabelResolver return type changed to *labelpb.LabelRecord. Updated pkg/enricher/enricher.go.
-
-### YYYY-MM-DD HH:MM [reconcile-task:update-spec]
-Updated go-architecture-design.md §5 to reflect InputType()/OutputType() on Step interface.
-```
-
-Use the resolution type as a sub-tag (`:fix-code`, `:update-spec`, `:document`, `:defer`) for granularity.
-
-### 6. Return Summary
+### 5. Return Summary
 
 ```
 ✓ Reconciliation complete: N findings resolved

@@ -10,7 +10,6 @@ Implement the task defined in README.md, using success criteria as the contract 
 - [ ] Self-check completed against each success criterion
 - [ ] Build passes (if applicable)
 - [ ] Progress note appended to README
-- [ ] Turn entries logged to TURNS.md at milestones
 
 ## Constraints (Required)
 - **Project-agnostic** — no hardcoded conventions
@@ -18,7 +17,6 @@ Implement the task defined in README.md, using success criteria as the contract 
 - **Symlink hygiene** — new deliverables symlinked to task, new artifacts in archive/
 - **No user interaction** — run autonomously; if blocked, document the blocker and continue with other criteria
 - **Single responsibility** — does NOT run review or reconcile; those are separate loop steps
-- **Turn logging** — log to TURNS.md at natural milestones with `[implement-task]` tag
 
 ## Process
 
@@ -60,21 +58,14 @@ Follow existing project conventions (detected from codebase, not hardcoded):
 - Test patterns (if tests exist, follow their style)
 - Import organization, comment style
 
-**Turn logging:** After completing each criterion (or group of related criteria), append to TURNS.md:
-
-```markdown
-### YYYY-MM-DD HH:MM [implement-task]
-Implemented [criterion description]. Created/modified [key files]. [Any notable decisions.]
-```
-
 ### 4. Self-Check
 
 Walk each success criterion and classify:
-- **Met** — implementation satisfies the criterion (note which files/functions)
+- **Met** — cite specific evidence: file path, function name, or test that satisfies it. "See implementation" is not sufficient.
 - **Partial** — partially addressed, document what's missing and why
 - **Blocked** — cannot implement, document the blocker
 
-If build tools are available, run the build as a sanity check.
+Verify build per `references/patterns.md § Build Verification`. If tests exist for affected code, run them.
 
 ### 5. Update Task README
 
