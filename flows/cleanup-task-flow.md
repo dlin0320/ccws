@@ -2,7 +2,7 @@
 
 > **Execution:** Run inline in the main context.
 
-Tear down a task whose PR has merged: delete the task directory, delete the branch, clean up any worktree the user created for this task, and prune remote refs.
+Tear down a task whose PR has merged: delete the task directory and remove any worktree the user created for this task. The local branch and remote-tracking refs are kept by default (for reference, cherry-picks, or just paranoia); `--delete-branch` opts in to full branch teardown.
 
 ## Purpose
 Separate the destructive cleanup phase from `end-task` (which opens the PR). Cleanup waits on an external event — the PR merging — and has different preconditions than everything upstream of it. Splitting the two makes those preconditions explicit rather than hidden inside conditional branches.
@@ -11,25 +11,25 @@ Separate the destructive cleanup phase from `end-task` (which opens the PR). Cle
 - [ ] PR is verified as merged (or user has explicitly overridden)
 - [ ] If a worktree exists for the branch, it's removed from disk and from `git worktree list`
 - [ ] Task directory `task/{task-name}/` is deleted; archive files it symlinked are untouched
-- [ ] Local branch is deleted; remote-tracking refs pruned
-- [ ] User sees a final summary of what was removed and where any residue remains
+- [ ] Local branch + remote-tracking refs preserved by default; deleted only when `--delete-branch` is passed
+- [ ] User sees a final summary of what was removed and what was kept
 
 ## Constraints (REQUIRED)
 - MUST verify the PR is merged before destructive actions (`--force` is the only override, and it requires explicit user confirmation)
-- MUST refuse if the branch has uncommitted or unpushed changes (checked in the worktree if one exists, otherwise in the main repo when the branch is checked out)
-- MUST refuse if the target branch is the currently checked-out branch in the main repo (user must switch to another branch first, so `git branch -d` can operate)
+- MUST refuse if a worktree exists for the branch and has uncommitted or unpushed changes (checked before `git worktree remove`)
 - MUST NOT run from inside the worktree being removed (git forbids it; this flow detects and instructs)
 - MUST NOT delete or move archive files — only symlinks inside the task dir
-- MUST NOT force-delete the local branch without explicit user confirmation when `git branch -d` refuses (e.g., squash-merged branches)
+- MUST NOT delete the local branch unless `--delete-branch` is passed
+- MUST NOT force-delete the local branch without explicit user confirmation when `git branch -d` refuses (e.g., squash-merged branches); only applies under `--delete-branch`
 - Operates on the active task's branch by default; `--branch <name>` allows targeting another already-ended task
 
 ## Modes
 
-- **Default**: verify, confirm, clean up
+- **Default**: verify PR merged, remove worktree (if any), delete task dir, keep local branch + remote-tracking refs
 - `--force`: skip the merged-PR check (useful if the PR was closed without merging and the user has decided to abandon the branch cleanly)
 - `--dry-run`: print what would be removed without touching anything
 - `--branch <name>`: target a specific task branch instead of the current one
-- `--keep-branch`: remove task dir (and worktree if present) but leave the local branch (useful if the user wants to keep the ref around for reference)
+- `--delete-branch`: also delete the local branch and prune its remote-tracking ref. Adds preconditions: not currently on the branch, no unpushed commits on it.
 
 ## Process
 
@@ -89,39 +89,40 @@ If `--force` was used: require explicit confirmation:
 ⚠ --force: cleaning up without a merged PR.
   Branch: {branch}
   PR state: {OPEN | CLOSED | none}
-  This will delete the worktree, task dir, and local branch.
+  This will remove the worktree (if any) and delete the task dir.
+  {" The local branch will also be deleted." — only if --delete-branch}
 Type the branch name to confirm: _
 ```
 
 ### 4. Verify Clean State
 
-Two cases:
-
-**Worktree exists** (`$worktree_path` non-empty):
+**If a worktree exists** (`$worktree_path` non-empty): `git worktree remove` requires a clean tree, so check:
 
 ```bash
 dirty=$(git -C "$worktree_path" status --porcelain)
 unpushed=$(git -C "$worktree_path" log "@{u}..HEAD" --oneline 2>/dev/null)
 ```
 
-**No worktree** — the branch lives only in the main repo:
+- If `dirty` is non-empty → "Worktree has uncommitted changes on `$branch`. Commit or stash them, then re-run." Exit unless `--force`.
+- If `unpushed` is non-empty AND `--delete-branch` → "Unpushed commits on `$branch` would be lost when the branch is deleted. Push them, or drop `--delete-branch`." Exit unless `--force`.
+- If `unpushed` is non-empty but no `--delete-branch`: just note it in the summary — the branch is being kept, so the commits aren't lost.
+
+**If `--delete-branch` is passed and no worktree exists:**
 
 ```bash
 current_branch=$(git -C "$main_repo" rev-parse --abbrev-ref HEAD)
 if [ "$current_branch" = "$branch" ]; then
-  # The branch we want to delete is the one checked out in main_repo
-  dirty=$(git -C "$main_repo" status --porcelain)
-  unpushed=$(git -C "$main_repo" log "@{u}..HEAD" --oneline 2>/dev/null)
-
   echo "Refusing to delete the currently-checked-out branch. Switch to another branch first:"
   echo "  git -C $main_repo checkout {main-branch}"
   exit  # unless --force, and even then only after user confirms
 fi
-# If the branch isn't checked out anywhere, its working state is irrelevant to deletion.
+
+unpushed=$(git -C "$main_repo" log "$branch@{u}..$branch" --oneline 2>/dev/null)
 ```
 
-- If `dirty` is non-empty → "Uncommitted changes on `$branch`. Commit or stash them, then re-run." Exit unless `--force`.
-- If `unpushed` is non-empty → "Unpushed commits on `$branch`. Push them, or use `--force` to discard." Exit unless `--force`.
+- If `unpushed` non-empty → "Unpushed commits on `$branch`. Push them, or use `--force` to discard." Exit unless `--force`.
+
+**Default path (no worktree, no `--delete-branch`):** nothing to verify — we're only deleting the task dir, which contains metadata (README + symlinks + task management files), not deliverables.
 
 ### 5. Check for Dependents
 
@@ -140,10 +141,10 @@ If any found: list them and ask whether to proceed. These symlinks will dangle a
 ```
 Cleanup plan for {branch}:
   ✓ PR #{N} merged at {timestamp} — {url}
-  {→ remove worktree:   {worktree_path}   (only if a worktree exists)}
+  {→ remove worktree:   {worktree_path}            (only if a worktree exists)}
   → delete task dir:   .claude-workspace/task/{task-name}/
-  → delete branch:     {branch} (local)
-  → prune remote refs: origin/{branch} (if stale)
+  {→ delete branch:     {branch} (local) + prune origin/{branch}   (only if --delete-branch)}
+  → keep branch:       {branch}                                    (default — omit if --delete-branch)
   {dependent warnings, if any}
 
 Proceed? (yes/no)
@@ -153,10 +154,10 @@ If `--dry-run`: print the plan and exit here.
 
 ### 7. Execute
 
-Order matters — worktree removal must precede branch deletion.
+Order matters — worktree removal must precede any branch deletion.
 
 ```bash
-# 7a. Remove worktree
+# 7a. Remove worktree (if one exists)
 if [ -n "$worktree_path" ] && [ -d "$worktree_path" ]; then
   git -C "$main_repo" worktree remove "$worktree_path"
   # If git refuses (submodules, locked worktree), fall back to:
@@ -173,43 +174,45 @@ rm -rf "$task_dir"
 Verify: `ls "$main_repo/.claude-workspace/archive/"` should show archive contents intact.
 
 ```bash
-# 7c. Delete local branch unless --keep-branch
-if [ -z "$arg_keep_branch" ]; then
+# 7c. Delete local branch — ONLY if --delete-branch was passed
+if [ -n "$arg_delete_branch" ]; then
   if ! git -C "$main_repo" branch -d "$branch" 2>/dev/null; then
     # -d refused. Common when the PR was squash/rebase-merged — git doesn't see the branch as merged.
     echo "git branch -d refused (likely squash/rebase merge). Force delete? (yes/no)"
     # On yes: git -C "$main_repo" branch -D "$branch"
   fi
+
+  # 7d. Prune the remote-tracking ref for this branch specifically
+  git -C "$main_repo" update-ref -d "refs/remotes/origin/$branch" 2>/dev/null || true
 fi
 ```
 
-```bash
-# 7d. Prune stale remote-tracking refs
-git -C "$main_repo" fetch --prune origin
-```
+**Default path does NOT touch the branch or remote-tracking refs.** The branch stays checked-out-able, `git log $branch` still works, and `origin/$branch` remains until the user chooses to prune (manually or with `--delete-branch` on a later `cleanup-task` run).
 
 ### 8. Confirm Completion
 
 ```
 ✓ Cleanup complete for {branch}
-  {✓ Worktree removed:  {worktree_path}   (line omitted if no worktree existed)}
+  {✓ Worktree removed:  {worktree_path}              (line omitted if no worktree existed)}
   ✓ Task dir deleted:  task/{task-name}/
-  ✓ Local branch:      deleted | kept (--keep-branch)
-  ✓ Remote tracking:   pruned
+  ✓ Local branch:      kept                          (default)   | deleted   (--delete-branch)
+  ✓ Remote tracking:   kept (origin/{branch})        (default)   | pruned    (--delete-branch)
 
 Archive files untouched: .claude-workspace/archive/
+{Run with --delete-branch later if you want to remove the branch too.   (default path only)}
 ```
 
 If any step was skipped or failed (worktree already gone, branch already deleted remotely), note that in the summary but treat as success — cleanup is idempotent.
 
 ## Guidance
 
-- **When to run:** after the PR merges on GitHub. If the project auto-deletes merged branches on GitHub, the remote-tracking cleanup in Step 7d handles the fallout; the local branch still needs deleting here.
-- **Worktree is optional:** prep-task doesn't create worktrees; users who want concurrent tasks make them manually. Most cleanup runs won't have a worktree — the flow falls through the worktree steps in that case.
+- **When to run:** after the PR merges on GitHub. The default run cleans up the task metadata (task dir, worktree if any) but keeps the branch — lets you look back at the work, cherry-pick, or diff against it without relying on GitHub alone.
+- **Why keep the branch by default:** local branches cost nothing, the remote retention policy is an org decision (many keep merged branches indefinitely), and there's no easy undo once you delete. Opt-in with `--delete-branch` when you're sure.
+- **Worktree is optional:** prep-task doesn't create worktrees; users who want concurrent tasks make them manually. Most cleanup runs won't have a worktree — the flow skips Step 7a in that case.
 - **Running from the worktree (if one exists):** the flow detects this and instructs the user to `cd` to the main repo. Don't try to work around it — git will fail and the shell will lose its CWD mid-flight.
-- **Currently on the target branch (in-place case):** the flow refuses and asks the user to switch to another branch first. `git branch -d` can't delete the currently checked-out branch.
-- **Squash/rebase merges:** `git branch -d` will often refuse because the merge commit on main has a different SHA than the branch tip. The flow falls back to `-D` with explicit confirmation. This is expected, not an error.
-- **`--force` is for abandonment:** use it when the user is giving up on a branch that will never merge (closed PR, superseded work). It is NOT a shortcut past normal checks — it still verifies the worktree is clean and still requires typing the branch name to confirm.
+- **`--delete-branch` preconditions:** not currently on the target branch, no unpushed commits. Without the flag, neither condition is checked because the branch isn't being touched.
+- **Squash/rebase merges (only under `--delete-branch`):** `git branch -d` will often refuse because the merge commit on main has a different SHA than the branch tip. The flow falls back to `-D` with explicit confirmation. This is expected, not an error.
+- **`--force` is for abandonment:** use it when the user is giving up on a branch that will never merge (closed PR, superseded work). It is NOT a shortcut past normal checks — it still verifies any worktree is clean and still requires typing the branch name to confirm.
 - **Archive files are sacred:** this flow only touches the task dir (which contains README + symlinks + task management files) and the worktree. The actual artifacts in `archive/` stay put. If the user wants to clean up archive, that's a separate concern — see `references/rules.md § Cleanup Thresholds`.
 - **Dependents:** stacked task workflows (task B depends on archive from task A) aren't common, but the Step 5 check flags them. The user decides whether to proceed with dangling-symlink consequences.
 - **Idempotency:** re-running after a successful cleanup is a no-op with a "nothing to clean" message, not an error. This matters for scripts and for users who aren't sure whether they already ran it.

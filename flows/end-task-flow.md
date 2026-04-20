@@ -159,8 +159,9 @@ If `gh pr create` fails (auth missing, no remote, etc.): print the error and the
 Next:
   - If the PR gets an automated review (e.g., claude bot), run triage-pr-review
     to ingest findings into FEEDBACK.md, then reconcile-task to resolve them.
-  - After the PR merges, run cleanup-task to delete the task dir and local
-    branch (and remove the worktree, if you created one).
+  - After the PR merges, run cleanup-task to delete the task dir (and remove
+    the worktree, if you created one). The local branch is kept by default;
+    add --delete-branch to tear it down too.
 ```
 
 ## Guidance

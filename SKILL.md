@@ -76,7 +76,7 @@ What each flow reads and produces — use this to trace data flow and debug issu
 | **summarize-task** | README, SNAPSHOT.md, FEEDBACK.md, git diff | `SUMMARY.md` in task dir | Gate 2: user reviews summary |
 | **end-task** | SUMMARY.md or README, git status | Git commits, pushed branch, pull request | — |
 | **triage-pr-review** | PR reviews + comments (via `gh`), README, prior FEEDBACK.md | `## PR Review Findings` section appended to FEEDBACK.md; README progress note | — |
-| **cleanup-task** | `gh pr view` state, `git worktree list`, task dir | Task dir deleted, local branch deleted, remote refs pruned, worktree removed if one existed | — |
+| **cleanup-task** | `gh pr view` state, `git worktree list`, task dir | Task dir deleted; worktree removed if one existed. Local branch + remote-tracking refs kept by default; `--delete-branch` opts in to full teardown. | — |
 | **turn-log hook** (automatic) | Stop / SubagentStop hook input | Entry appended to `task/{task-name}/TURNS.md` | — |
 
 ## References
