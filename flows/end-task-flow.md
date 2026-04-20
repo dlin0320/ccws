@@ -2,10 +2,10 @@
 
 > **Execution:** Run inline in the main context.
 
-Finalize the task: commit deliverable changes, push the branch, open a pull request. Worktree and task directory cleanup are deferred until after the PR merges.
+Finalize the task: commit deliverable changes, push the branch, open a pull request. Worktree and task directory cleanup are handled separately by `cleanup-task` after the PR merges.
 
 ## Purpose
-Close out the work-producing phase of the task cycle. Commits capture deliverable changes, the PR enables external review and merge, and the task dir + worktree remain for reference until the change lands.
+Close out the work-producing phase of the task cycle. Commits capture deliverable changes, the PR enables external review and merge, and the task dir + worktree remain so `triage-pr-review` and `reconcile-task` can operate on external PR feedback until the change lands. `cleanup-task` runs post-merge to tear everything down.
 
 ## Outcome (Required)
 - [ ] Git commit(s) created for any deliverable changes
@@ -26,12 +26,13 @@ Close out the work-producing phase of the task cycle. Commits capture deliverabl
 
 ```bash
 branch=$(git rev-parse --abbrev-ref HEAD)
+task_name="${branch//\//-}"
 main_repo=$(git rev-parse --show-toplevel)
 workspace="$main_repo/.claude-workspace"
-task_dir="$workspace/task/$branch"
+task_dir="$workspace/task/$task_name"
 ```
 
-If `$task_dir` doesn't exist: "No matching task for branch `$branch`. Was prep-task run?"
+If `$task_dir` doesn't exist: "No matching task for branch `$branch` (expected `task/$task_name/`). Was prep-task run?"
 
 If `$branch` is the main/default branch (e.g., `main`, `master`): "Refusing to end-task on the main branch. Create a feature branch first."
 
@@ -155,9 +156,11 @@ If `gh pr create` fails (auth missing, no remote, etc.): print the error and the
 ✓ Commits pushed: {N} to origin/{branch}
 ✓ PR opened: {url}
 
-Task directory and worktree remain until the PR merges. After merge, clean up with:
-  git worktree remove {worktree-path}
-  rm -rf {main_repo}/.claude-workspace/task/{branch}
+Next:
+  - If the PR gets an automated review (e.g., claude bot), run triage-pr-review
+    to ingest findings into FEEDBACK.md, then reconcile-task to resolve them.
+  - After the PR merges, run cleanup-task to remove the worktree, task dir,
+    and local branch.
 ```
 
 ## Guidance
@@ -177,7 +180,7 @@ If the user wants an early-feedback draft, add `--draft` to `gh pr create`. Othe
 SUMMARY.md is the authoritative PR body. If absent, end-task falls back to README, but running summarize-task first yields a significantly better PR description.
 
 **Cleanup is separate:**
-Worktree removal and task dir deletion happen **after** the PR merges, not here. The current flow leaves both in place so the user can reference them while the PR is in review. Future work: a dedicated cleanup-task flow triggered on merge.
+Worktree removal and task dir deletion happen **after** the PR merges, via `cleanup-task`. end-task leaves both in place so the user can reference them during external review and so `triage-pr-review` has a task dir to write FEEDBACK.md into.
 
 **Non-worktree mode:**
 If the current dir is not a worktree (rare — typically when a user has been working directly on a branch in the main repo), end-task still commits, pushes, and opens the PR. Task dir cleanup is still deferred until after merge.

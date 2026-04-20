@@ -11,13 +11,13 @@ Turn a user intent into a named, categorized, branch-bound task ready for implem
 - [ ] Task name is meaningful and categorized with a conventional-commit prefix
 - [ ] Branch `{type}/{name}` exists, based on the project's main branch
 - [ ] Worktree exists at a sibling path of the main repo (for new tasks)
-- [ ] `.claude-workspace/task/{type}/{name}/README.md` exists with Objective, Context, Success Criteria
+- [ ] `.claude-workspace/task/{type}-{name}/README.md` exists with Objective, Context, Success Criteria
 - [ ] Session is ready to proceed in the worktree (Gate 1 approved)
 
 ## Constraints (Required)
-- Task dir path mirrors the branch name exactly: branch `feat/auth-refresh` → `task/feat/auth-refresh/`
+- Task dir name is the branch with `/` flattened to `-`: branch `feat/auth-refresh` → `task/feat-auth-refresh/`. See `references/patterns.md § Task Directory Naming`.
 - README.md is the only file created directly in the task directory (artifacts live in `archive/` and symlink)
-- Worktree-native: branch is authoritative; the turn-log hook resolves the task dir from `git rev-parse --abbrev-ref HEAD`
+- Worktree-native: branch is authoritative; the turn-log hook resolves the task dir from the current branch via the same transform
 - Branch defaults to being cut from the project's main branch, not from whatever the user is currently on
 
 ## Process
@@ -26,14 +26,15 @@ Turn a user intent into a named, categorized, branch-bound task ready for implem
 
 ```bash
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+task_name="${branch//\//-}"
 ```
 
-- **Resume** if the current branch has a matching `task/{branch}/` dir → Step 2A.
+- **Resume** if the current branch has a matching `task/$task_name/` dir → Step 2A.
 - **Create** otherwise → Step 2B.
 
 ### 2A. Resume Existing Task
 
-Read `.claude-workspace/task/{branch}/README.md`, list symlinks, check for broken ones.
+Read `.claude-workspace/task/$task_name/README.md`, list symlinks, check for broken ones.
 
 **If broken symlinks are found:**
 ```
@@ -106,13 +107,13 @@ User confirms or edits. Default base is `origin/{main-branch}` (detect: `main` o
 
 #### Create Branch + Worktree
 
-Compute the worktree path — sibling to main repo, slashes in branch replaced with dashes:
+Compute the task key and worktree path — slashes in the branch flatten to dashes per `references/patterns.md § Task Directory Naming`:
 
 ```bash
 main_repo=$(git rev-parse --show-toplevel)
 base_name=$(basename "$main_repo")
-worktree_suffix="${branch_name//\//-}"      # feat/auth-refresh → feat-auth-refresh
-worktree_path="$(dirname "$main_repo")/${base_name}-${worktree_suffix}"
+task_name="${branch_name//\//-}"            # feat/auth-refresh → feat-auth-refresh
+worktree_path="$(dirname "$main_repo")/${base_name}-${task_name}"
 ```
 
 Create the branch and worktree from main:
@@ -131,7 +132,7 @@ ln -s "$main_repo/.claude-workspace" "$worktree_path/.claude-workspace"
 #### Create Task Dir + README
 
 ```bash
-mkdir -p "$main_repo/.claude-workspace/task/{type}/{name}"
+mkdir -p "$main_repo/.claude-workspace/task/$task_name"
 ```
 
 Write `README.md` using the template:
@@ -161,7 +162,7 @@ Write `README.md` using the template:
 
 #### Initial Linking
 
-Symlink any reference docs or deliverables the user mentioned. See `references/patterns.md § Symlink Construction` for path details. The symlinks go into the task dir under the main repo's `.claude-workspace/task/{type}/{name}/`.
+Symlink any reference docs or deliverables the user mentioned. See `references/patterns.md § Symlink Construction` for path details. The symlinks go into the task dir under the main repo's `.claude-workspace/task/{type}-{name}/`.
 
 #### Gate 1b: Approve README
 
@@ -170,7 +171,7 @@ Display the full README. Pause:
 ```
 ✓ Branch created: {type}/{name}
 ✓ Worktree:       {worktree-path}
-✓ Task dir:       .claude-workspace/task/{type}/{name}/
+✓ Task dir:       .claude-workspace/task/{type}-{name}/
 
 [Full README]
 
@@ -190,7 +191,7 @@ To continue in the worktree:
   cd {worktree-path}
 
 Then invoke implement-task, or proceed with manual work. The turn-log hook will write to
-  {worktree-path}/.claude-workspace/task/{type}/{name}/TURNS.md
+  {worktree-path}/.claude-workspace/task/{type}-{name}/TURNS.md
 automatically.
 ```
 
@@ -200,7 +201,7 @@ The main-repo session can exit or remain — all further work happens in the wor
 
 All artifacts MUST be created in `archive/` and symlinked to the task dir. See `references/patterns.md § Symlink Construction` and `§ Task Management Files`.
 
-**DO NOT create artifacts in `task/{type}/{name}/`** — violates workspace architecture.
+**DO NOT create artifacts in `task/{type}-{name}/`** — violates workspace architecture.
 
 ## Guidance
 

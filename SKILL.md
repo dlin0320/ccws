@@ -11,7 +11,7 @@ A cognitive harness for developer-AI pairs working in Claude Code. The developer
 
 **Architecture:** Tasks in `.claude-workspace/task/` organize work with README + symlinks. Artifacts in `archive/` persist across tasks. Deliverables stay in the project. Context preserved via task READMEs (WIP), git commits (completed), and structured task files (TURNS, SNAPSHOT, FEEDBACK, SUMMARY). Context types have explicit lifespans: turns are ephemeral, progress notes are durable, git history is immutable, archive artifacts are cross-task.
 
-**Worktree-native:** Each task is bound to a branch. prep-task creates a branch `{type}/{name}` (feat/fix/refactor/etc.) and a sibling git worktree; end-task pushes the branch and opens a PR. The task dir path mirrors the branch name: `task/feat/auth-refresh/`. Task resolution throughout — including the turn-log hook — is via `git rev-parse --abbrev-ref HEAD`. Multiple worktrees = multiple concurrent tasks with no shared state problems.
+**Worktree-native:** Each task is bound to a branch. prep-task creates a branch `{type}/{name}` (feat/fix/refactor/etc.) and a sibling git worktree; end-task pushes the branch and opens a PR. Task directories are flat: the branch name flattens to dashes, so `feat/auth-refresh` → `task/feat-auth-refresh/`. Task resolution throughout — including the turn-log hook — is via `git rev-parse --abbrev-ref HEAD` with that transform applied. See `references/patterns.md § Task Directory Naming`. Multiple worktrees = multiple concurrent tasks with no shared state problems.
 
 ## What This Skill Provides
 
@@ -40,6 +40,8 @@ When spawning a subagent, resolve the flow file path relative to this skill's di
 | **reconcile-task** | "reconcile", "resolve findings", "fix review items", address FEEDBACK.md | Inline | `flows/reconcile-task-flow.md` |
 | **summarize-task** | "summarize", "wrap up" | Inline | `flows/summarize-task-flow.md` |
 | **end-task** | "end task", task objectives achieved | Inline | `flows/end-task-flow.md` |
+| **triage-pr-review** | "triage pr review", "ingest bot review", "check claude bot feedback" | **Subagent** | `flows/triage-pr-review-flow.md` |
+| **cleanup-task** | "cleanup task", "remove worktree", after PR merges | Inline | `flows/cleanup-task-flow.md` |
 
 **Automatic behavior** (not a flow — installed by setup-flow as a hook):
 - **Turn logging** — the turn-log hook fires on `Stop` (main session) and `SubagentStop` (subagent completion). It resolves the active task from the current git branch and appends a one-line entry to `task/<branch>/TURNS.md`. Checkpoint distills TURNS.md into structured README progress notes. See `references/patterns.md § Turn Logging`.
@@ -51,10 +53,12 @@ When spawning a subagent, resolve the flow file path relative to this skill's di
 Two human gates bracket the work. Each flow executes autonomously when invoked. Today the user drives flow progression; full autonomy between gates is the design trajectory.
 
 ```
-prep → [GATE 1: user approves plan] → implement ↔ review ↔ reconcile → summarize → [GATE 2: user approves result] → end
+prep → [GATE 1: plan approved] → implement ↔ review ↔ reconcile → summarize → [GATE 2: result approved]
+     → end-task (PR opens) → triage-pr-review ↔ reconcile → push fixes
+     → (PR merges externally) → cleanup-task
 ```
 
-The implement/review/reconcile cycle repeats as needed. Checkpoint and snapshot can be invoked at any point to save context.
+The implement/review/reconcile cycle repeats as needed before Gate 2. After the PR opens, the triage/reconcile cycle mirrors the pre-gate one — same shape, external source. Cleanup is a separate, post-merge phase with its own preconditions (merged PR, clean worktree). Checkpoint and snapshot can be invoked at any point to save context.
 
 ## Flow Contracts
 
@@ -71,7 +75,9 @@ What each flow reads and produces — use this to trace data flow and debug issu
 | **reconcile-task** | FEEDBACK.md, README, specs, code | Code fixes, spec updates, README design decisions | — |
 | **summarize-task** | README, SNAPSHOT.md, FEEDBACK.md, git diff | `SUMMARY.md` in task dir | Gate 2: user reviews summary |
 | **end-task** | SUMMARY.md or README, git status | Git commits, pushed branch, pull request | — |
-| **turn-log hook** (automatic) | Stop / SubagentStop hook input | Entry appended to `task/{branch}/TURNS.md` | — |
+| **triage-pr-review** | PR reviews + comments (via `gh`), README, prior FEEDBACK.md | `## PR Review Findings` section appended to FEEDBACK.md; README progress note | — |
+| **cleanup-task** | `gh pr view` state, `git worktree list`, task dir | Worktree removed, task dir deleted, local branch deleted, remote refs pruned | — |
+| **turn-log hook** (automatic) | Stop / SubagentStop hook input | Entry appended to `task/{task-name}/TURNS.md` | — |
 
 ## References
 

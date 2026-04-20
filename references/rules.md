@@ -25,11 +25,11 @@ Clear definitions to avoid confusion:
 - Examples: source code, project tests, project documentation
 - Version controlled and shipped with project
 
-**Task** - A temporary unit of work with its own directory in `task/`.
-- Path: `task/[task-name]/`
+**Task** - A temporary unit of work bound to a branch and a sibling worktree.
+- Path: `task/[task-name]/` — the branch name flattened per `references/patterns.md § Task Directory Naming` (e.g., `feat/auth-refresh` → `task/feat-auth-refresh/`)
 - Contains: README.md + symlinks (to artifacts AND/OR deliverables)
-- Lifecycle: Create → Work → Complete → Delete
-- Deletion safe: only removes directory with README and symlinks, never actual files
+- Lifecycle: prep-task → work → end-task (PR opens) → (PR merges externally) → cleanup-task
+- Deletion safe: cleanup-task removes only the directory with README and symlinks, never actual files
 
 ## REQUIRED RULES (Non-Negotiable)
 
@@ -50,19 +50,20 @@ ln -s ../../archive/scripts/test.sh .claude-workspace/task/my-task/test.sh
 echo "content" > .claude-workspace/task/my-task/test.sh
 ```
 
-### 2. Task Deletion
-- ✅ **DO**: Delete task directory when complete: `rm -rf task/[task]/`
-- ✅ **DO**: Verify archive files remain untouched after deletion
+### 2. Task Lifecycle and Deletion
+- ✅ **DO**: Leave the task directory in place through PR review — `end-task` opens the PR, `cleanup-task` removes the directory after the PR merges
+- ✅ **DO**: Treat `cleanup-task` as the sole deleter — no other flow removes a task directory
+- ✅ **DO**: Verify archive files remain untouched after cleanup
 - ❌ **DON'T**: Delete or move archive files when completing tasks
-- ❌ **DON'T**: Leave completed task directories in task/
+- ❌ **DON'T**: Manually remove a task directory before its PR merges; it's needed for `triage-pr-review` and for reference during external review
 
 ### 3. Directory Structure
 - ✅ **DO**: Use `task/`, `archive/[types]/` structure
 - ✅ **DO**: Organize archive by type: docs, scripts, reports, research
 - ❌ **DON'T**: Create custom top-level directories in workspace
 - ❌ **DON'T**: Reorganize archive structure without updating rules
-- ❌ **DON'T**: Nest task directories (e.g., `task/group/subname/` breaks symlink paths)
-- ✅ **DO**: Keep task directories exactly one level deep: `task/[task-name]/`
+- ❌ **DON'T**: Nest task directories (e.g., `task/feat/auth-refresh/` breaks symlink paths and glob-based task discovery)
+- ✅ **DO**: Keep task directories exactly one level deep: `task/[task-name]/` where `[task-name]` is the branch name flattened per `references/patterns.md § Task Directory Naming`
 
 ### 4. Symlink Pattern
 - ✅ **DO**: Use relative symlinks from `task/[task-name]/` to the target
@@ -79,7 +80,8 @@ For conventions (naming, concurrent tasks, checkpoints, file metadata), see `ref
 
 ### task/ - Active Tasks
 Contents: README.md (task-specific) + symlinks to archive files
-Lifecycle: Create → Work → Checkpoint → Delete
+Path: `task/[task-name]/` — flat, one level deep. Branch name flattened to dashes per `references/patterns.md § Task Directory Naming` (e.g. `feat/auth-refresh` → `task/feat-auth-refresh/`).
+Lifecycle: prep-task → work → checkpoint → end-task (PR opens) → cleanup-task (post-merge)
 
 ### archive/ - Permanent Storage
 **archive/docs/** - Documentation, analysis, architecture

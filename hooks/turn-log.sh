@@ -21,7 +21,8 @@ workspace="$cwd/.claude-workspace"
 [ -d "$workspace" ] || exit 0
 
 branch=$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
-task_dir="$workspace/task/$branch"
+task_name="${branch//\//-}"
+task_dir="$workspace/task/$task_name"
 [ -d "$task_dir" ] || exit 0
 
 case "$event" in

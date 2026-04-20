@@ -2,6 +2,26 @@
 
 Reusable templates, formats, and operational patterns referenced by flow files. Read specific sections by heading.
 
+## Task Directory Naming
+
+The task directory key is the branch name with `/` replaced by `-`. Task directories are exactly one level deep — the `/` separator in branches like `feat/auth-refresh` is a git commit convention, not a filesystem layout.
+
+- Branch `feat/auth-refresh` → task dir `task/feat-auth-refresh/`
+- Branch `fix/issue-123` → task dir `task/fix-issue-123/`
+- Branch `main` → no task dir (flows refuse to operate on main)
+
+The worktree basename uses the same transform, so `{repo}-feat-auth-refresh/` (worktree) pairs with `task/feat-auth-refresh/` (task dir).
+
+**Bash idiom — use this whenever a flow resolves the task dir from the current branch:**
+
+```bash
+branch=$(git rev-parse --abbrev-ref HEAD)
+task_name="${branch//\//-}"
+task_dir=".claude-workspace/task/$task_name"
+```
+
+User-facing path displays use the form `task/{task-name}/` where `{task-name}` is the flattened branch.
+
 ## Symlink Construction
 
 From `task/[task-name]/`, use relative symlinks to reach targets:
@@ -19,7 +39,7 @@ TURNS.md is maintained automatically by the turn-log hook installed by setup-flo
 - `Stop` — fires once after each main-session turn; writes `[auto]` entry
 - `SubagentStop` — fires once after each subagent (Agent tool) completion; writes `[auto:subagent]` entry
 
-**Task resolution:** the hook reads the current git branch (`git rev-parse --abbrev-ref HEAD`) and targets `.claude-workspace/task/<branch>/TURNS.md`. If no matching task dir exists, the hook silently exits — non-task turns produce no entry.
+**Task resolution:** the hook reads the current git branch (`git rev-parse --abbrev-ref HEAD`), applies the slash-to-dash transform per `§ Task Directory Naming`, and targets `.claude-workspace/task/{task-name}/TURNS.md`. If no matching task dir exists, the hook silently exits — non-task turns produce no entry.
 
 **Entry format:**
 
@@ -37,7 +57,7 @@ TURNS.md is maintained automatically by the turn-log hook installed by setup-flo
 
 **Consumption:** checkpoint-task reads TURNS.md to distill progress notes into the README, then clears the file. Empty TURNS.md after checkpoint is expected.
 
-**Troubleshooting:** if TURNS.md isn't being written, verify (1) `.claude/settings.json` has Stop and SubagentStop hook entries pointing at `<skill-dir>/hooks/turn-log.sh`, (2) the script is executable, (3) the current git branch matches an existing `.claude-workspace/task/<branch>/` directory.
+**Troubleshooting:** if TURNS.md isn't being written, verify (1) `.claude/settings.json` has Stop and SubagentStop hook entries pointing at `<skill-dir>/hooks/turn-log.sh`, (2) the script is executable, (3) the current git branch flattened per `§ Task Directory Naming` matches an existing `.claude-workspace/task/{task-name}/` directory.
 
 ## Design Decisions
 
