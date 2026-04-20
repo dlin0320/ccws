@@ -2,10 +2,10 @@
 
 > **Execution:** Run inline in the main context.
 
-Finalize the task: commit deliverable changes, push the branch, open a pull request. Worktree and task directory cleanup are handled separately by `cleanup-task` after the PR merges.
+Finalize the task: commit deliverable changes, push the branch, open a pull request. Task directory cleanup (and any worktree removal) is handled separately by `cleanup-task` after the PR merges.
 
 ## Purpose
-Close out the work-producing phase of the task cycle. Commits capture deliverable changes, the PR enables external review and merge, and the task dir + worktree remain so `triage-pr-review` and `reconcile-task` can operate on external PR feedback until the change lands. `cleanup-task` runs post-merge to tear everything down.
+Close out the work-producing phase of the task cycle. Commits capture deliverable changes, the PR enables external review and merge, and the task dir remains so `triage-pr-review` and `reconcile-task` can operate on external PR feedback until the change lands. `cleanup-task` runs post-merge to tear everything down.
 
 ## Outcome (Required)
 - [ ] Git commit(s) created for any deliverable changes
@@ -18,7 +18,7 @@ Close out the work-producing phase of the task cycle. Commits capture deliverabl
 - MUST NOT delete or move archive files
 - MUST NOT force-push unless the user explicitly authorizes it
 - MUST use `gh pr create` rather than manually constructing a URL
-- Worktree mode is the default; direct-branch (non-worktree) mode is supported but unusual
+- Runs on whatever working tree is currently checked out — main repo (default) or a user-created worktree
 
 ## Process
 
@@ -159,8 +159,8 @@ If `gh pr create` fails (auth missing, no remote, etc.): print the error and the
 Next:
   - If the PR gets an automated review (e.g., claude bot), run triage-pr-review
     to ingest findings into FEEDBACK.md, then reconcile-task to resolve them.
-  - After the PR merges, run cleanup-task to remove the worktree, task dir,
-    and local branch.
+  - After the PR merges, run cleanup-task to delete the task dir and local
+    branch (and remove the worktree, if you created one).
 ```
 
 ## Guidance
@@ -180,10 +180,10 @@ If the user wants an early-feedback draft, add `--draft` to `gh pr create`. Othe
 SUMMARY.md is the authoritative PR body. If absent, end-task falls back to README, but running summarize-task first yields a significantly better PR description.
 
 **Cleanup is separate:**
-Worktree removal and task dir deletion happen **after** the PR merges, via `cleanup-task`. end-task leaves both in place so the user can reference them during external review and so `triage-pr-review` has a task dir to write FEEDBACK.md into.
+Task dir deletion (and worktree removal, if one exists) happens **after** the PR merges, via `cleanup-task`. end-task leaves the task dir in place so the user can reference it during external review and so `triage-pr-review` has somewhere to write FEEDBACK.md.
 
-**Non-worktree mode:**
-If the current dir is not a worktree (rare — typically when a user has been working directly on a branch in the main repo), end-task still commits, pushes, and opens the PR. Task dir cleanup is still deferred until after merge.
+**Worktree mode:**
+If the user created a worktree manually, end-task still commits, pushes, and opens the PR the same way — it operates on the current working tree, whatever it is. `cleanup-task` will detect and remove the worktree post-merge.
 
 **No remote:**
 If the project has no git remote, end-task skips Step 5 and 6 entirely. It commits locally and notes that push + PR must be done manually once a remote exists.

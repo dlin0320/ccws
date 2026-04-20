@@ -38,11 +38,11 @@ Check if `.gitignore` exists:
 - If no: Create with `.claude-workspace`
 
 ```bash
-# Check and append — NO trailing slash, so the pattern matches both real dirs (main repo) and symlinks (worktrees)
+# Check and append — NO trailing slash, so the pattern matches both real dirs and symlinks
 grep -qE "^\.claude-workspace/?$" .gitignore 2>/dev/null || echo ".claude-workspace" >> .gitignore
 ```
 
-**Why no trailing slash:** prep-task symlinks `.claude-workspace` into each worktree. Git's `.gitignore` pattern `foo/` only matches actual directories, not symlinks-to-directories — so worktrees would see the symlink as untracked. The pattern `.claude-workspace` (no slash) matches both.
+**Why no trailing slash:** if the user ever creates a worktree manually and symlinks `.claude-workspace` into it (so archive/ and task/ stay shared), the worktree sees a symlink-to-directory rather than a real directory. Git's `.gitignore` pattern `foo/` only matches actual directories, so the pattern with no slash (`.claude-workspace`) is what covers both cases. Costs nothing in the common non-worktree case.
 
 ### 4. Install Turn-Logging Hook
 
@@ -63,7 +63,7 @@ Ensure the project has `.claude/settings.json` (create if absent). Merge the fol
 }
 ```
 
-The hook appends a one-line entry to the active task's TURNS.md after each main-session turn (`Stop`) and each subagent completion (`SubagentStop`). Task resolution is worktree-native: the hook reads the current git branch and writes to `.claude-workspace/task/<branch>/TURNS.md`. If no matching task dir exists, the hook silently exits — non-task chores produce no noise.
+The hook appends a one-line entry to the active task's TURNS.md after each main-session turn (`Stop`) and each subagent completion (`SubagentStop`). Task resolution is branch-based: the hook reads the current git branch, applies the slash-to-dash transform per `references/patterns.md § Task Directory Naming`, and writes to `.claude-workspace/task/{task-name}/TURNS.md`. If no matching task dir exists, the hook silently exits — non-task chores produce no noise.
 
 See `references/patterns.md § Turn Logging` for the entry format the hook produces.
 
@@ -85,14 +85,14 @@ Do not add: task-specific state, information already in code/docs, or ephemeral 
 
 ### 6. Commit Setup Artifacts
 
-Stage and commit the tracked setup files so future worktrees inherit them:
+Stage and commit the tracked setup files so they're part of the repo from the start:
 
 ```bash
 git add .gitignore .claude/settings.json CLAUDE.md
 git commit -m "ccws setup: workspace, hooks, gitignore"
 ```
 
-**Why commit now:** prep-task creates worktrees from `main` (or the default branch). If `.gitignore` isn't committed, new worktrees won't ignore the `.claude-workspace` symlink and it'll show as untracked. Committing before the first worktree is created avoids this. If the user prefers to review before committing, skip this step and tell them to commit manually.
+**Why commit now:** prep-task cuts new branches from the default branch (`main` / `master`). Having `.gitignore`, `.claude/settings.json`, and `CLAUDE.md` committed means every new branch inherits the hook config and the `.claude-workspace` ignore rule automatically. If the user prefers to review before committing, skip this step and tell them to commit manually.
 
 ### 7. Completion
 
@@ -101,13 +101,13 @@ Inform user:
 ```
 ✓ Workspace created: .claude-workspace/
 ✓ Structure: task/ (active tasks), archive/ (permanent artifacts)
-✓ .gitignore: updated (no trailing slash — matches symlinks in worktrees)
+✓ .gitignore: updated (no trailing slash — matches symlinks too, covers optional worktrees)
 ✓ Hook installed: .claude/settings.json (Stop + SubagentStop → turn-log.sh)
 ✓ CLAUDE.md: maintenance guidance added
 ✓ Committed: .gitignore, .claude/settings.json, CLAUDE.md
 
 Workspace ready! Use ccws flows to manage tasks:
-- prep-task: Begin a new task (creates branch + worktree)
+- prep-task: Begin a new task (checks out a new branch in the current repo)
 - checkpoint-task: Save progress
 - end-task: Commit, push, open PR
 ```

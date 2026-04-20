@@ -10,7 +10,7 @@ The task directory key is the branch name with `/` replaced by `-`. Task directo
 - Branch `fix/issue-123` → task dir `task/fix-issue-123/`
 - Branch `main` → no task dir (flows refuse to operate on main)
 
-The worktree basename uses the same transform, so `{repo}-feat-auth-refresh/` (worktree) pairs with `task/feat-auth-refresh/` (task dir).
+(If the user has manually created a worktree for this branch, its basename conventionally uses the same transform — e.g. `{repo}-feat-auth-refresh/` — but that's a user choice, not something the skill enforces.)
 
 **Bash idiom — use this whenever a flow resolves the task dir from the current branch:**
 

@@ -25,7 +25,7 @@ Clear definitions to avoid confusion:
 - Examples: source code, project tests, project documentation
 - Version controlled and shipped with project
 
-**Task** - A temporary unit of work bound to a branch and a sibling worktree.
+**Task** - A temporary unit of work bound to a branch (checked out in the current repo; worktrees are optional and user-managed).
 - Path: `task/[task-name]/` — the branch name flattened per `references/patterns.md § Task Directory Naming` (e.g., `feat/auth-refresh` → `task/feat-auth-refresh/`)
 - Contains: README.md + symlinks (to artifacts AND/OR deliverables)
 - Lifecycle: prep-task → work → end-task (PR opens) → (PR merges externally) → cleanup-task

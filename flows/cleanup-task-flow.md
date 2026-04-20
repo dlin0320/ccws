@@ -2,21 +2,22 @@
 
 > **Execution:** Run inline in the main context.
 
-Tear down a task whose PR has merged: remove the worktree, delete the task directory, and clean up local/remote branch refs.
+Tear down a task whose PR has merged: delete the task directory, delete the branch, clean up any worktree the user created for this task, and prune remote refs.
 
 ## Purpose
 Separate the destructive cleanup phase from `end-task` (which opens the PR). Cleanup waits on an external event — the PR merging — and has different preconditions than everything upstream of it. Splitting the two makes those preconditions explicit rather than hidden inside conditional branches.
 
 ## Outcome (Required)
 - [ ] PR is verified as merged (or user has explicitly overridden)
-- [ ] Worktree is removed from disk and from `git worktree list`
+- [ ] If a worktree exists for the branch, it's removed from disk and from `git worktree list`
 - [ ] Task directory `task/{task-name}/` is deleted; archive files it symlinked are untouched
 - [ ] Local branch is deleted; remote-tracking refs pruned
 - [ ] User sees a final summary of what was removed and where any residue remains
 
 ## Constraints (REQUIRED)
 - MUST verify the PR is merged before destructive actions (`--force` is the only override, and it requires explicit user confirmation)
-- MUST refuse if the worktree has uncommitted or unpushed changes
+- MUST refuse if the branch has uncommitted or unpushed changes (checked in the worktree if one exists, otherwise in the main repo when the branch is checked out)
+- MUST refuse if the target branch is the currently checked-out branch in the main repo (user must switch to another branch first, so `git branch -d` can operate)
 - MUST NOT run from inside the worktree being removed (git forbids it; this flow detects and instructs)
 - MUST NOT delete or move archive files — only symlinks inside the task dir
 - MUST NOT force-delete the local branch without explicit user confirmation when `git branch -d` refuses (e.g., squash-merged branches)
@@ -28,7 +29,7 @@ Separate the destructive cleanup phase from `end-task` (which opens the PR). Cle
 - `--force`: skip the merged-PR check (useful if the PR was closed without merging and the user has decided to abandon the branch cleanly)
 - `--dry-run`: print what would be removed without touching anything
 - `--branch <name>`: target a specific task branch instead of the current one
-- `--keep-branch`: remove worktree + task dir but leave local branch (useful if the user wants to keep the ref around for reference)
+- `--keep-branch`: remove task dir (and worktree if present) but leave the local branch (useful if the user wants to keep the ref around for reference)
 
 ## Process
 
@@ -92,17 +93,35 @@ If `--force` was used: require explicit confirmation:
 Type the branch name to confirm: _
 ```
 
-### 4. Verify Worktree Is Clean
+### 4. Verify Clean State
 
-If `$worktree_path` exists:
+Two cases:
+
+**Worktree exists** (`$worktree_path` non-empty):
 
 ```bash
 dirty=$(git -C "$worktree_path" status --porcelain)
 unpushed=$(git -C "$worktree_path" log "@{u}..HEAD" --oneline 2>/dev/null)
 ```
 
-- If `dirty` is non-empty → "Worktree has uncommitted changes. Commit or stash them, then re-run." Exit unless `--force`.
-- If `unpushed` is non-empty → "Worktree has unpushed commits. Push them, or use `--force` to discard." Exit unless `--force`.
+**No worktree** — the branch lives only in the main repo:
+
+```bash
+current_branch=$(git -C "$main_repo" rev-parse --abbrev-ref HEAD)
+if [ "$current_branch" = "$branch" ]; then
+  # The branch we want to delete is the one checked out in main_repo
+  dirty=$(git -C "$main_repo" status --porcelain)
+  unpushed=$(git -C "$main_repo" log "@{u}..HEAD" --oneline 2>/dev/null)
+
+  echo "Refusing to delete the currently-checked-out branch. Switch to another branch first:"
+  echo "  git -C $main_repo checkout {main-branch}"
+  exit  # unless --force, and even then only after user confirms
+fi
+# If the branch isn't checked out anywhere, its working state is irrelevant to deletion.
+```
+
+- If `dirty` is non-empty → "Uncommitted changes on `$branch`. Commit or stash them, then re-run." Exit unless `--force`.
+- If `unpushed` is non-empty → "Unpushed commits on `$branch`. Push them, or use `--force` to discard." Exit unless `--force`.
 
 ### 5. Check for Dependents
 
@@ -121,7 +140,7 @@ If any found: list them and ask whether to proceed. These symlinks will dangle a
 ```
 Cleanup plan for {branch}:
   ✓ PR #{N} merged at {timestamp} — {url}
-  → remove worktree:   {worktree_path}
+  {→ remove worktree:   {worktree_path}   (only if a worktree exists)}
   → delete task dir:   .claude-workspace/task/{task-name}/
   → delete branch:     {branch} (local)
   → prune remote refs: origin/{branch} (if stale)
@@ -173,7 +192,7 @@ git -C "$main_repo" fetch --prune origin
 
 ```
 ✓ Cleanup complete for {branch}
-  ✓ Worktree removed:  {worktree_path}
+  {✓ Worktree removed:  {worktree_path}   (line omitted if no worktree existed)}
   ✓ Task dir deleted:  task/{task-name}/
   ✓ Local branch:      deleted | kept (--keep-branch)
   ✓ Remote tracking:   pruned
@@ -186,7 +205,9 @@ If any step was skipped or failed (worktree already gone, branch already deleted
 ## Guidance
 
 - **When to run:** after the PR merges on GitHub. If the project auto-deletes merged branches on GitHub, the remote-tracking cleanup in Step 7d handles the fallout; the local branch still needs deleting here.
-- **Running from the worktree:** the flow detects this and instructs the user to `cd` to the main repo. Don't try to work around it — git will fail and the shell will lose its CWD mid-flight.
+- **Worktree is optional:** prep-task doesn't create worktrees; users who want concurrent tasks make them manually. Most cleanup runs won't have a worktree — the flow falls through the worktree steps in that case.
+- **Running from the worktree (if one exists):** the flow detects this and instructs the user to `cd` to the main repo. Don't try to work around it — git will fail and the shell will lose its CWD mid-flight.
+- **Currently on the target branch (in-place case):** the flow refuses and asks the user to switch to another branch first. `git branch -d` can't delete the currently checked-out branch.
 - **Squash/rebase merges:** `git branch -d` will often refuse because the merge commit on main has a different SHA than the branch tip. The flow falls back to `-D` with explicit confirmation. This is expected, not an error.
 - **`--force` is for abandonment:** use it when the user is giving up on a branch that will never merge (closed PR, superseded work). It is NOT a shortcut past normal checks — it still verifies the worktree is clean and still requires typing the branch name to confirm.
 - **Archive files are sacred:** this flow only touches the task dir (which contains README + symlinks + task management files) and the worktree. The actual artifacts in `archive/` stay put. If the user wants to clean up archive, that's a separate concern — see `references/rules.md § Cleanup Thresholds`.
