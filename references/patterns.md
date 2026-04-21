@@ -85,6 +85,29 @@ Record intentional divergences from reference docs or specs in the task README `
 
 If the README doesn't have a `## Design Decisions` section yet, create one between Success Criteria and Progress Notes.
 
+## Deferred Spec Items
+
+When reconcile resolves a finding as `defer`, the deferral must be recorded somewhere that survives the task's cleanup. The referenced spec is the durable home — future tasks working on the same area will see what was explicitly deferred and why.
+
+**Where to write:** the finding's `Reference:` field cites a spec document and section. Append to that spec's `## Deferred` (or `## Future Work`) section, creating the section at the end of the document if absent.
+
+**Template:**
+
+```markdown
+## Deferred
+
+- **[Short title]** — [what the spec originally required]
+  - **Deferred:** YYYY-MM-DD (branch `{task-branch}`, PR #{N} if known)
+  - **Rationale:** [why not now — scope, dependency, risk, cost]
+  - **Trigger:** [event/milestone that should cause re-pickup]
+```
+
+**When the reference isn't durable:**
+If the finding's only reference is the task README (task-scoped, not a spec), there is no durable file to update. Record the deferral as a Design Decision instead per `§ Design Decisions` — it flows into git history via the reconcile progress note and the end-task commit, which is the best available durability for task-scoped concerns.
+
+**What survives cleanup:**
+Specs (whether tracked in the repo or under `.claude-workspace/archive/`) are preserved by `cleanup-task`. FEEDBACK.md's Deferred Items table is still written for in-task tracking, but treat it as a working copy that dies with the task.
+
 ## Task Management Files
 
 Files that live directly in the task directory (not symlinked from archive):

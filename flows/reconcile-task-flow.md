@@ -12,6 +12,7 @@ Bridge the gap between "review found problems" and "problems are resolved." For 
 - [ ] Code fixes applied for fix-code resolutions
 - [ ] Spec/design docs updated for update-spec resolutions
 - [ ] README Design Decisions updated for document resolutions
+- [ ] Deferred items recorded in the referenced spec's `## Deferred` section (durable) — FEEDBACK.md's deferred table alone is not sufficient, it dies with the task
 - [ ] Progress note added summarizing reconciliation
 
 ## Constraints (Required)
@@ -68,7 +69,7 @@ For each actionable finding, choose a resolution:
 | **fix-code** | Implementation is wrong | Fix the code to match the spec |
 | **update-spec** | Spec is wrong or outdated | Update the design doc to match implementation |
 | **document** | Divergence is intentional | Add Design Decision to README |
-| **defer** | Not addressing now | Note rationale for deferral |
+| **defer** | Not addressing now | Append to referenced spec's `## Deferred` section (durable) + FEEDBACK.md deferred table (in-task) |
 
 **Interactive mode:** Present each finding with its FEEDBACK.md description and suggested fix. Ask: "Resolution? (fix-code / update-spec / document / defer)"
 
@@ -89,7 +90,7 @@ Execute in this order:
 1. **update-spec** resolutions first (changes what "correct" means)
 2. **document** resolutions second (updates README)
 3. **fix-code** resolutions last (code changes informed by updated specs)
-4. **defer** resolutions (update README or FEEDBACK.md deferred table)
+4. **defer** resolutions (append to referenced spec's Deferred section + update FEEDBACK.md)
 
 For each resolution:
 
@@ -107,8 +108,9 @@ For each resolution:
 - Add a Design Decision entry to the task README per `references/patterns.md § Design Decisions`
 
 **defer:**
-- Add to the Deferred Items table in FEEDBACK.md (if it exists)
-- Note the rationale for deferral and the expected tier/milestone
+- Append to the referenced spec's `## Deferred` (or `## Future Work`) section per `references/patterns.md § Deferred Spec Items`. Create the section if it doesn't exist. This is the durable record — it survives `cleanup-task`.
+- Also add to the Deferred Items table in FEEDBACK.md for in-task tracking (this copy dies with the task)
+- If the finding only references task-local docs (e.g. the task README), record as a Design Decision instead per `references/patterns.md § Design Decisions` — task-local references have no durable home, and git history via the reconcile progress note is the best available preservation
 
 ### 4. Update Task README
 
