@@ -18,6 +18,7 @@ Close out the work-producing phase of the task cycle. Commits capture deliverabl
 - MUST NOT delete or move archive files
 - MUST NOT force-push unless the user explicitly authorizes it
 - MUST use `gh pr create` rather than manually constructing a URL
+- MUST run the voice check on the prospective PR body before `gh pr create` per `references/patterns.md § PR Body Voice` — no first-person, no conversational offers, no open questions to the reviewer
 - Runs on whatever working tree is currently checked out — main repo (default) or a user-created worktree
 
 ## Process
@@ -119,21 +120,22 @@ Derive title and body from available context:
 
 - **Title:** `{type}: {name-as-sentence}`. E.g., branch `feat/auth-refresh` → `feat: auth refresh`.
 - **Base branch:** the project's main branch (detect: `main` or `master`; respect `gh` default if configured).
-- **Body:**
+- **Body source:**
   - Prefer `$task_dir/SUMMARY.md` if it exists (run summarize-task first for best results).
   - Otherwise construct from README Objective + Progress Notes.
 
+#### 6a. Stage the Body
+
+Write the prospective body to a single file, regardless of source. This is what the voice check operates on and what `gh pr create` consumes.
+
 ```bash
 base=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null || echo main)
+body_file=$(mktemp -t ccws-pr-body.XXXXXX.md)
 
 if [ -f "$task_dir/SUMMARY.md" ]; then
-  gh pr create --base "$base" --head "$branch" \
-    --title "{type}: {name-as-sentence}" \
-    --body-file "$task_dir/SUMMARY.md"
+  cp "$task_dir/SUMMARY.md" "$body_file"
 else
-  gh pr create --base "$base" --head "$branch" \
-    --title "{type}: {name-as-sentence}" \
-    --body "$(cat <<'EOF'
+  cat > "$body_file" <<'EOF'
 ## Summary
 {Objective from README}
 
@@ -143,8 +145,36 @@ else
 ## Test plan
 - [ ] {items}
 EOF
-)"
 fi
+```
+
+#### 6b. Voice Check
+
+Before `gh pr create`, scan `$body_file` for agent-conversational voice per `references/patterns.md § PR Body Voice`. Look for:
+
+- First-person verbs: `I`, `I'll`, `I'd`, `I've`, `we'll`, `we'd`, `we've`, `my`/`me` in the voice sense
+- Conversational offers: `happy to`, `let me know`, `feel free`, `if preferred`, `can fold this in`
+- Open questions: `should I …?`, `do you want …?`
+- Entire sections that read as conversation with the reviewer (e.g. an "Optional follow-up" that negotiates scope rather than stating it)
+
+**If any are found:** rewrite `$body_file` in place to third-person declarative form, preserving the underlying information. Convert offers into declarative follow-ups:
+
+| Conversational | Declarative |
+|---|---|
+| "Happy to fold in X if preferred — let me know." | "Follow-up: X." |
+| "Should I split this into two PRs?" | "Out of scope: Y. Tracked separately." |
+| "I've added Z so we can …" | "Adds Z to support …" |
+
+**Display the final body to the user and confirm before creating the PR.** If the user wants further edits, update `$body_file` and re-confirm.
+
+#### 6c. Create the PR
+
+```bash
+gh pr create --base "$base" --head "$branch" \
+  --title "{type}: {name-as-sentence}" \
+  --body-file "$body_file"
+
+rm -f "$body_file"
 ```
 
 If `gh pr create` fails (auth missing, no remote, etc.): print the error and the full command so the user can run it manually. Capture the PR URL from a successful run.
@@ -179,6 +209,9 @@ If the user wants an early-feedback draft, add `--draft` to `gh pr create`. Othe
 
 **PR body vs SUMMARY.md:**
 SUMMARY.md is the authoritative PR body. If absent, end-task falls back to README, but running summarize-task first yields a significantly better PR description.
+
+**PR body voice:**
+Whatever the source, the body is a formal artifact — not a chat reply. Step 6b enforces third-person declarative voice per `references/patterns.md § PR Body Voice`. Agent-conversational content ("happy to", "let me know", "should I …?") gets rewritten to declarative follow-ups or out-of-scope notes before the PR opens. Watch especially for an "Optional follow-up" or similar section added outside the SUMMARY.md template — fold it into Deferred Items or restate declaratively.
 
 **Cleanup is separate:**
 Task dir deletion (and worktree removal, if one exists) happens **after** the PR merges, via `cleanup-task`. end-task leaves the task dir in place so the user can reference it during external review and so `triage-pr-review` has somewhere to write FEEDBACK.md.

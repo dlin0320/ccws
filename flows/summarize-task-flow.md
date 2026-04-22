@@ -15,6 +15,8 @@ Produce a developer-facing implementation summary showing what was built and how
 - Content must reflect current state, not original spec (specs may have evolved during reconciliation)
 - Developer-facing: concrete, technical, reviewable — a developer should be able to verify the implementation from this summary
 - Feeds into end-task for commit messages — should contain the "what" and "why" at a level suitable for git history
+- **PR-body voice** — SUMMARY.md is used verbatim as the PR body. Third-person, declarative. No first-person ("I", "we'll"), no conversational offers ("happy to", "let me know"), no open questions to the reviewer. Follow-ups and out-of-scope items are stated declaratively. See `references/patterns.md § PR Body Voice`.
+- Only include sections present in the template below. If a follow-up or out-of-scope note is needed, fold it into Deferred Items rather than inventing a new conversational section.
 - Project-agnostic — no hardcoded conventions
 
 ## Process

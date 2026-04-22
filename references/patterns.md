@@ -108,6 +108,28 @@ If the finding's only reference is the task README (task-scoped, not a spec), th
 **What survives cleanup:**
 Specs (whether tracked in the repo or under `.claude-workspace/archive/`) are preserved by `cleanup-task`. FEEDBACK.md's Deferred Items table is still written for in-task tracking, but treat it as a working copy that dies with the task.
 
+## PR Body Voice
+
+SUMMARY.md is consumed verbatim as the PR body by `end-task`. The PR body is a formal artifact — read by reviewers, archaeologists, and release-notes writers who were never in the authoring conversation. Agent-conversational voice belongs in the chat, not in the artifact.
+
+**Voice rules:**
+- Third-person and declarative. State what the change is, what's in scope, what isn't.
+- No first-person verbs: avoid "I", "I'll", "I'd", "I've", "we'll", "we'd", "we've", "my", "me" (in the voice sense — "my" in a code path is fine).
+- No open questions to the reviewer: avoid "should I split this?", "do you want …?". The author makes the call; review comments are the place to renegotiate.
+- No conversational offers: avoid "happy to", "let me know", "feel free to", "if preferred", "can fold this in".
+
+**Follow-up / out-of-scope items:**
+Future work is legitimate content but must be stated declaratively:
+
+- ✅ "Out of scope: CI `gofmt` check. Tracked separately."
+- ✅ "Follow-up: add CI `gofmt` check to prevent drift recurrence."
+- ❌ "Happy to fold in a CI `gofmt` check if preferred — let me know."
+
+The declarative form gives reviewers information. The conversational form invites a negotiation in a venue (the PR description) that isn't built for it.
+
+**Enforcement:**
+`end-task` performs a voice check on the prospective PR body before `gh pr create`: it scans for first-person and conversational markers, rewrites them in-place to declarative form where possible, and shows the final body to the user for confirmation. The rewrite preserves information — "Happy to fold in X if preferred" becomes "Follow-up: X." — rather than dropping content.
+
 ## Task Management Files
 
 Files that live directly in the task directory (not symlinked from archive):
