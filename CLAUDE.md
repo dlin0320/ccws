@@ -30,6 +30,9 @@ Two gates (plan review, result review) give the user meaningful control. Between
 ### Decisions are first-class
 The hardest thing to recover across sessions isn't code (that's in git) or progress (that's in the README) — it's *why* something was done a certain way. Design Decisions, FEEDBACK.md classifications, and reconciliation records exist to preserve rationale. Most harnesses preserve *what was done*. CCWS preserves *why it was done that way*.
 
+### The archive is for snapshots
+Content under code review pressure (in the project repo) gets corrected as code changes — drift becomes a review finding. Content without review pressure (in `archive/`) drifts into a snapshot of the moment it was written. The harness uses this distinction definitionally: evergreen reference belongs in the project repo, where review keeps it honest; archive holds content that's *meant* to be a snapshot — investigations of external systems, captures of upstream state, plans that reconcile updates explicitly. Calling something "docs" inside archive invites mislabeling because it implies evergreen status the location can't sustain.
+
 ### Context has structure and lifespans
 Unstructured context (conversation history, raw logs) compresses poorly and ages badly. Structured context (README sections, typed classifications, task management files with defined purposes) survives session boundaries and agent handoffs. Different context types have different lifespans: in-session conversation is ephemeral (use `/compact` for relief), README progress notes are durable-but-mutable, git history is immutable, archive artifacts are cross-task. The harness manages these transitions explicitly.
 

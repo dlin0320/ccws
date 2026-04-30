@@ -26,7 +26,7 @@ User-facing path displays use the form `task/{task-name}/` where `{task-name}` i
 
 From `task/[task-name]/`, use relative symlinks to reach targets:
 
-- **Archive files** are siblings under `.claude-workspace/`, so the path is always `../../archive/[type]/filename`
+- **Archive bundles** are siblings under `.claude-workspace/`, so the path is always `../../archive/{type}/{name}/filename` (per `§ Archive Shape`)
 - **Deliverables** are outside `.claude-workspace/` — count `../` levels from the task directory up to the project root, then down to the file
 
 Verify symlinks resolve correctly with `ls -la` after creation. Path distinguishes intent: symlinks into `archive/` are artifacts, symlinks outside `.claude-workspace/` are deliverables.
@@ -80,11 +80,20 @@ If the finding's only reference is the task README (task-scoped, not a spec), th
 **What survives cleanup:**
 Specs (whether tracked in the repo or under `.claude-workspace/archive/`) are preserved by `cleanup-task`. FEEDBACK.md's Deferred Items table is still written for in-task tracking, but treat it as a working copy that dies with the task.
 
+## Archive Shape
+
+All `archive/[type]/` content uses name-keyed bundles, not loose files. Every artifact lives at `archive/{type}/{name}/` where `{name}` is a kebab-case identifier and the directory holds whatever files that artifact comprises (single writeup, multi-file investigation, script + helpers + sample data, etc.).
+
+**Canonical entry file** — every bundle has one file that's the "start here":
+- `archive/plans/{name}/PLAN.md` — plans have a defined spec role; the entry name reflects it
+- `archive/investigations/{name}/README.md` — investigations vary in shape; README is the universal "start here"
+- `archive/scripts/{name}/{script}.{ext}` — solo scripts ARE the entry; multi-file bundles add a `README.md`
+
+**Why bundles:** real artifacts produce multiple files (writeup + raw data + processed output, or script + helper + sample input). The dir-as-bundle shape gives them a single home, and the directory name itself becomes searchable metadata. Loose files directly under `archive/[type]/` are forbidden — they break the type/name structure and re-create the "where does this go" ambiguity that nesting solves.
+
 ## Plans
 
-When a multi-step plan drives several sequential tasks, persist it as a referenced spec in the workspace so each task can read the current plan state and reconcile can write deferrals back.
-
-**Archive shape:** `.claude-workspace/archive/plans/{plan-name}/PLAN.md`. Plan dirs sit alongside `archive/docs/`, `scripts/`, etc.
+When a multi-step plan drives several sequential tasks, persist it as a referenced spec in the workspace so each task can read the current plan state and reconcile can write deferrals back. Plans follow `§ Archive Shape` with `PLAN.md` as the canonical entry.
 
 **Import:** copy the plan from its source (e.g., plan-mode's output dir) into the archive on first use, with a one-time human-friendly rename — validated per the same rules as task names (kebab-case, no denylist words, ≥12 chars or has hyphen). After import, the archive name is authoritative.
 
@@ -163,7 +172,7 @@ When searching for prior work on a topic:
 2. **Archive** — artifacts from past tasks:
    ```
    Glob "*[topic]*" in .claude-workspace/archive/
-   Grep "[topic]" in .claude-workspace/archive/docs/
+   Grep "[topic]" in .claude-workspace/archive/investigations/
    ```
 3. **Active tasks** — current WIP:
    ```

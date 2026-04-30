@@ -20,16 +20,15 @@ If exists: Ask if user wants to reconfigure (backup existing to `.claude-workspa
 ### 2. Create Directory Structure
 
 ```bash
-mkdir -p .claude-workspace/task .claude-workspace/archive/docs .claude-workspace/archive/scripts .claude-workspace/archive/reports .claude-workspace/archive/research
+mkdir -p .claude-workspace/task .claude-workspace/archive/plans .claude-workspace/archive/investigations .claude-workspace/archive/scripts
 ```
 
 Creates structure:
 - **task/** - Active tasks (README + symlinks)
-- **archive/** - Permanent artifacts by type:
-  - **docs/** - Documentation, analysis, architecture
-  - **scripts/** - Reusable automation, utilities
-  - **reports/** - Test results, benchmarks
-  - **research/** - Experiments, comparisons
+- **archive/** - Permanent artifacts as name-keyed bundles (`archive/{type}/{name}/`, see `references/patterns.md § Archive Shape`):
+  - **plans/** - Forward-looking multi-task plans
+  - **investigations/** - Backward-looking captures (audits, gap analyses, debug bundles, test reports)
+  - **scripts/** - Reusable automation
 
 ### 3. Update .gitignore
 

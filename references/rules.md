@@ -15,8 +15,8 @@ Clear definitions to avoid confusion:
 - Purpose: Claude's work-in-progress, analysis, development tools
 
 **Artifact** - Files created BY Claude FOR Claude's development process.
-- Must exist in workspace (`archive/[type]/`)
-- Examples: analysis docs, test scripts, debug logs, research notes
+- Must exist in workspace (`archive/[type]/[name]/`)
+- Examples: investigations (audits, gap analyses, captures), automation scripts, multi-task plans
 - Never part of project deliverables
 - Gitignored (not committed)
 
@@ -36,17 +36,19 @@ Clear definitions to avoid confusion:
 These rules define the workspace architecture and MUST be followed:
 
 ### 1. File Creation Architecture
-- ✅ **DO**: Create ALL files in `archive/[type]/`
+- ✅ **DO**: Create ALL files in `archive/[type]/[name]/`
 - ✅ **DO**: Symlink from archive to `task/[task]/`
 - ❌ **DON'T**: Create files directly in `task/[task]/` (except task management files: README.md, FEEDBACK.md, SUMMARY.md)
+- ❌ **DON'T**: Create files at `archive/[type]/` root — every artifact lives inside a name-keyed bundle
 - ❌ **DON'T**: Create files outside `.claude-workspace/`
 
 ```bash
 # CORRECT
-echo "content" > .claude-workspace/archive/scripts/test.sh
-ln -s ../../archive/scripts/test.sh .claude-workspace/task/my-task/test.sh
+echo "content" > .claude-workspace/archive/scripts/test-api/test-api.sh
+ln -s ../../archive/scripts/test-api/test-api.sh .claude-workspace/task/my-task/test-api.sh
 
 # WRONG
+echo "content" > .claude-workspace/archive/scripts/test.sh
 echo "content" > .claude-workspace/task/my-task/test.sh
 ```
 
@@ -60,7 +62,8 @@ echo "content" > .claude-workspace/task/my-task/test.sh
 
 ### 3. Directory Structure
 - ✅ **DO**: Use `task/`, `archive/[types]/` structure
-- ✅ **DO**: Organize archive by type: docs, scripts, reports, research
+- ✅ **DO**: Organize archive by type: plans, investigations, scripts
+- ✅ **DO**: Use name-keyed bundles under each type — `archive/{type}/{name}/` (see `references/patterns.md § Archive Shape`)
 - ❌ **DON'T**: Create custom top-level directories in workspace
 - ❌ **DON'T**: Reorganize archive structure without updating rules
 - ❌ **DON'T**: Nest task directories (e.g., `task/feat/auth-refresh/` breaks symlink paths and glob-based task discovery)
@@ -85,20 +88,16 @@ Path: `task/[task-name]/` — flat, one level deep. Branch name flattened to das
 Lifecycle: prep-task → implement / review / reconcile → end-task (PR opens) → cleanup-task (post-merge)
 
 ### archive/ - Permanent Storage
-**archive/docs/** - Documentation, analysis, architecture
-Examples: `auth-system-analysis.md`, `database-schema.md`
+All archive content uses name-keyed bundles: `archive/{type}/{name}/`. See `references/patterns.md § Archive Shape` for the full convention. The project repo holds evergreen reference (architecture, runbooks, in-tree ADRs); archive holds snapshot content (investigations of external systems, captures of upstream state, forward-looking plans).
 
-**archive/scripts/** - Reusable automation
-Examples: `test-api.sh`, `benchmark.py`, `deploy.sh`
+**archive/plans/{name}/** - Forward-looking multi-task plans (cross-task referenced specs)
+Examples: `plans/auth-refresh/PLAN.md`, `plans/migration-q3/PLAN.md`
 
-**archive/reports/** - Test results, benchmarks
-Examples: `2025-10-28-coverage.html`, `api-performance.md`
+**archive/investigations/{name}/** - Backward-looking captures (audits, gap analyses, debug bundles, test reports, comparisons)
+Examples: `investigations/snowflake-token-audit/README.md`, `investigations/coverage-2026-04/README.md`
 
-**archive/research/** - Experiments, comparisons
-Examples: `redis-vs-memcached.md`, `auth-libraries.md`
-
-**archive/plans/** - Multi-task plans (cross-task referenced specs)
-Examples: `auth-refresh/PLAN.md`, `migration-q3/PLAN.md`
+**archive/scripts/{name}/** - Reusable automation
+Examples: `scripts/test-api/test-api.sh`, `scripts/deploy/deploy.sh`
 
 ## Cleanup Thresholds
 
