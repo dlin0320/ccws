@@ -202,7 +202,7 @@ Next:
 - Work is ready for external review
 
 **If work isn't done yet:**
-Use checkpoint-task to save progress — keeps the task active and doesn't open a PR.
+Don't run end-task — keep working. README progress notes from implement/reconcile capture cross-session state; `/compact` handles in-session context pressure.
 
 **Draft PRs:**
 If the user wants an early-feedback draft, add `--draft` to `gh pr create`. Otherwise default to ready-for-review.

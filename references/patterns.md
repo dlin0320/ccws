@@ -31,34 +31,6 @@ From `task/[task-name]/`, use relative symlinks to reach targets:
 
 Verify symlinks resolve correctly with `ls -la` after creation. Path distinguishes intent: symlinks into `archive/` are artifacts, symlinks outside `.claude-workspace/` are deliverables.
 
-## Turn Logging
-
-TURNS.md is maintained automatically by the turn-log hook installed by setup-flow. Flows do NOT log to TURNS.md themselves — the hook is the sole writer.
-
-**Trigger events:**
-- `Stop` — fires once after each main-session turn; writes `[auto]` entry
-- `SubagentStop` — fires once after each subagent (Agent tool) completion; writes `[auto:subagent]` entry
-
-**Task resolution:** the hook reads the current git branch (`git rev-parse --abbrev-ref HEAD`), applies the slash-to-dash transform per `§ Task Directory Naming`, and targets `.claude-workspace/task/{task-name}/TURNS.md`. If no matching task dir exists, the hook silently exits — non-task turns produce no entry.
-
-**Entry format:**
-
-    ### YYYY-MM-DD HH:MM [tag]
-    First ~240 chars of the last assistant message, whitespace-collapsed to one line.
-
-**Tags:**
-- `[auto]` — main-session Stop
-- `[auto:subagent]` — SubagentStop
-
-**Example:**
-
-    ### 2026-04-20 15:06 [auto]
-    Implemented token refresh logic in src/auth.ts. Added retry with exponential backoff per spec §3.
-
-**Consumption:** checkpoint-task reads TURNS.md to distill progress notes into the README, then clears the file. Empty TURNS.md after checkpoint is expected.
-
-**Troubleshooting:** if TURNS.md isn't being written, verify (1) `.claude/settings.json` has Stop and SubagentStop hook entries pointing at `<skill-dir>/hooks/turn-log.sh`, (2) the script is executable, (3) the current git branch flattened per `§ Task Directory Naming` matches an existing `.claude-workspace/task/{task-name}/` directory.
-
 ## Design Decisions
 
 Record intentional divergences from reference docs or specs in the task README `## Design Decisions` section.
@@ -108,6 +80,22 @@ If the finding's only reference is the task README (task-scoped, not a spec), th
 **What survives cleanup:**
 Specs (whether tracked in the repo or under `.claude-workspace/archive/`) are preserved by `cleanup-task`. FEEDBACK.md's Deferred Items table is still written for in-task tracking, but treat it as a working copy that dies with the task.
 
+## Plans
+
+When a multi-step plan drives several sequential tasks, persist it as a referenced spec in the workspace so each task can read the current plan state and reconcile can write deferrals back.
+
+**Archive shape:** `.claude-workspace/archive/plans/{plan-name}/PLAN.md`. Plan dirs sit alongside `archive/docs/`, `scripts/`, etc.
+
+**Import:** copy the plan from its source (e.g., plan-mode's output dir) into the archive on first use, with a one-time human-friendly rename — validated per the same rules as task names (kebab-case, no denylist words, ≥12 chars or has hyphen). After import, the archive name is authoritative.
+
+**The plan IS the referenced spec.** Reconcile's `## Deferred` promotion (`§ Deferred Spec Items`) targets PLAN.md when a task spawned from the plan defers something. This is what lets the plan absorb learnings across tasks — task N+1 reads PLAN.md and sees what task N decided not to do.
+
+**Task linkage:**
+- Each task spawned from the plan adds a `## Plan` section to its README pointing at `archive/plans/{plan-name}/PLAN.md`.
+- PLAN.md has a `## Tasks` section listing constituent tasks (`{type}/{name}` per entry). Tasks append themselves at creation time.
+
+**Lifecycle:** plan dirs persist past `cleanup-task` — the plan is a durable cross-task artifact, not task-scoped. Manual pruning is the user's call.
+
 ## PR Body Voice
 
 SUMMARY.md is consumed verbatim as the PR body by `end-task`. The PR body is a formal artifact — read by reviewers, archaeologists, and release-notes writers who were never in the authoring conversation. Agent-conversational voice belongs in the chat, not in the artifact.
@@ -137,9 +125,7 @@ Files that live directly in the task directory (not symlinked from archive):
 | File | Purpose | Created by |
 |------|---------|------------|
 | `README.md` | Objective, context, success criteria, design decisions, progress notes | prep-task |
-| `TURNS.md` | Per-turn session log, distilled into README by checkpoint | Automatic (turn logging) |
 | `FEEDBACK.md` | Review findings with classifications | review-task |
-| `SNAPSHOT.md` | Implementation structure index | snapshot-task |
 | `SUMMARY.md` | User-facing implementation summary | summarize-task |
 
 ## Conventions
@@ -151,13 +137,9 @@ Files that live directly in the task directory (not symlinked from archive):
 
 ### Concurrent Tasks
 - Multiple tasks can coexist but should represent **independent work**
-- If two tasks symlink the same deliverable, edits through either affect the same file — checkpoint both tasks before switching
+- If two tasks symlink the same deliverable, edits through either affect the same file — record state in each README before switching
 - Prefer sequential tasks over concurrent when work overlaps on the same files
 - When resuming, always check `ls .claude-workspace/task/` to see all active tasks
-
-### Checkpoints
-- Save progress before context switches
-- Latest checkpoint = source of truth for WIP state
 
 ### File Metadata
 Add header to workspace documentation for searchability:
@@ -221,7 +203,6 @@ When a flow fails mid-execution or leaves unexpected state, check these invarian
 | Task directory contents | Task management files + symlinks only | Move real files to archive/, remove unexpected files |
 | Symlinks | All resolve to existing targets | Remove broken symlinks or recreate targets |
 | README progress notes | Chronological, latest reflects current state | Add a corrective progress note |
-| TURNS.md after checkpoint | Empty (cleared by checkpoint) | Clear if checkpoint completed successfully |
 | FEEDBACK.md vs README | Reconcile progress note post-dates FEEDBACK.md if findings addressed | Run reconcile-task or add missing progress note |
 
 **General recovery:** README is source of truth for task intent, git for deliverable state, archive for artifacts. Read the README, compare against actual state, correct the divergence.

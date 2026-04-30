@@ -51,9 +51,6 @@ ls -la .claude-workspace/task/[task-name]/
 
 - Determine mode from user input: default (task-scoped) or `--full` (repo-wide)
 - If a prior FEEDBACK.md exists in the task directory, read it to distinguish new vs previously identified findings
-- Check for SNAPSHOT.md in the task directory:
-  - **If missing**: Warn: "No SNAPSHOT.md found. Run snapshot-task first for better review quality, or proceed without it." Wait for user confirmation before continuing.
-  - **If exists**: Read it and check the `Updated:` timestamp. If `git log --since` shows changes to implementation files since that timestamp, note: "SNAPSHOT.md may be stale (last updated [date]). Consider re-running snapshot-task." Proceed but note the staleness in the FEEDBACK.md summary.
 
 ### 2. Gather Reference Material
 
@@ -182,5 +179,4 @@ Report to the main context:
 - **UNDOCUMENTED items**: The finding is the missing rationale, not just the code difference. The fix should always include "add a Design Decision entry explaining the rationale, or fix the implementation to match the spec."
 - **EXTRA items**: These are informational — implementation may legitimately go beyond spec. Don't treat them as problems unless they contradict something
 - **Build failures**: If the build fails, note it in Summary but still complete the review — build issues are separate from spec alignment
-- **Snapshot freshness**: Review is more accurate with a current SNAPSHOT.md. If the snapshot is missing or stale, the review agent must do its own code discovery, which is slower and may miss structural context
 - **Large codebases**: In full mode, prioritize reading files that are most likely to relate to documented assertions rather than scanning everything exhaustively

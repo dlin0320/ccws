@@ -38,7 +38,7 @@ These rules define the workspace architecture and MUST be followed:
 ### 1. File Creation Architecture
 - ✅ **DO**: Create ALL files in `archive/[type]/`
 - ✅ **DO**: Symlink from archive to `task/[task]/`
-- ❌ **DON'T**: Create files directly in `task/[task]/` (except task management files: README.md, TURNS.md, FEEDBACK.md, SNAPSHOT.md, SUMMARY.md)
+- ❌ **DON'T**: Create files directly in `task/[task]/` (except task management files: README.md, FEEDBACK.md, SUMMARY.md)
 - ❌ **DON'T**: Create files outside `.claude-workspace/`
 
 ```bash
@@ -56,6 +56,7 @@ echo "content" > .claude-workspace/task/my-task/test.sh
 - ✅ **DO**: Verify archive files remain untouched after cleanup
 - ❌ **DON'T**: Delete or move archive files when completing tasks
 - ❌ **DON'T**: Manually remove a task directory before its PR merges; it's needed for `triage-pr-review` and for reference during external review
+- ✅ **DO**: Preserve plan directories (`archive/plans/{plan-name}/`) past task cleanup — they're durable cross-task artifacts; manual pruning is the user's call
 
 ### 3. Directory Structure
 - ✅ **DO**: Use `task/`, `archive/[types]/` structure
@@ -74,14 +75,14 @@ echo "content" > .claude-workspace/task/my-task/test.sh
 
 For path construction details, see `references/patterns.md § Symlink Construction`.
 
-For conventions (naming, concurrent tasks, checkpoints, file metadata), see `references/patterns.md § Conventions`.
+For conventions (naming, concurrent tasks, file metadata), see `references/patterns.md § Conventions`.
 
 ## Directory Reference
 
 ### task/ - Active Tasks
 Contents: README.md (task-specific) + symlinks to archive files
 Path: `task/[task-name]/` — flat, one level deep. Branch name flattened to dashes per `references/patterns.md § Task Directory Naming` (e.g. `feat/auth-refresh` → `task/feat-auth-refresh/`).
-Lifecycle: prep-task → work → checkpoint → end-task (PR opens) → cleanup-task (post-merge)
+Lifecycle: prep-task → implement / review / reconcile → end-task (PR opens) → cleanup-task (post-merge)
 
 ### archive/ - Permanent Storage
 **archive/docs/** - Documentation, analysis, architecture
@@ -95,6 +96,9 @@ Examples: `2025-10-28-coverage.html`, `api-performance.md`
 
 **archive/research/** - Experiments, comparisons
 Examples: `redis-vs-memcached.md`, `auth-libraries.md`
+
+**archive/plans/** - Multi-task plans (cross-task referenced specs)
+Examples: `auth-refresh/PLAN.md`, `migration-q3/PLAN.md`
 
 ## Cleanup Thresholds
 

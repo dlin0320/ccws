@@ -32,8 +32,6 @@ List symlinked files in the task directory. Separate into:
 - **Reference docs** (.md, .yaml, .yml, .json, .toml, config) — read for implementation guidance
 - **Implementation files** (.go, .py, .ts, etc.) — existing code to build on or modify
 
-If SNAPSHOT.md exists, read it for structural context.
-
 ### 2. Plan Implementation
 
 For each success criterion, determine:

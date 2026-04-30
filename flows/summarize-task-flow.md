@@ -35,11 +35,9 @@ If multiple: Ask which task.
 Read from these sources (all optional — use what exists):
 
 1. **Task README** — objective, success criteria, design decisions, progress notes
-2. **SNAPSHOT.md** — structural details (if exists)
-3. **FEEDBACK.md** — resolved/deferred findings (if exists)
-4. **Conversation context** — recent work not yet checkpointed
-5. **TURNS.md** — session history (if exists)
-6. **git diff / git status** — actual file changes
+2. **FEEDBACK.md** — resolved/deferred findings (if exists)
+3. **Conversation context** — recent work
+4. **git diff / git status** — actual file changes
 
 Prioritize current state over historical narrative.
 

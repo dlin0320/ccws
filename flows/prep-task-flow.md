@@ -16,7 +16,6 @@ Turn a user intent into a named, categorized, branch-bound task ready for implem
 ## Constraints (Required)
 - Task dir name is the branch with `/` flattened to `-`: branch `feat/auth-refresh` → `task/feat-auth-refresh/`. See `references/patterns.md § Task Directory Naming`.
 - README.md is the only file created directly in the task directory (artifacts live in `archive/` and symlink)
-- Branch is authoritative; the turn-log hook resolves the task dir from the current branch via the same transform
 - Branch defaults to being cut from the project's main branch, not from whatever the user is currently on
 - Refuse to create a new branch while the working tree is dirty — the user must commit or stash first (prevents silent carryover of unrelated changes)
 
@@ -158,10 +157,10 @@ Write `README.md` using the template:
 {How will we know it's done? Specific, testable conditions. Trace to spec sections when possible.}
 
 ## Design Decisions
-<!-- Intentional divergences from spec — added during checkpoint or reconcile -->
+<!-- Intentional divergences from spec — added during reconcile -->
 
 ## Progress Notes
-<!-- Added during checkpoint -->
+<!-- Added by implement, reconcile, and other flow runs -->
 ```
 
 #### Initial Linking
@@ -188,9 +187,7 @@ If changes requested: update README and re-display. Do NOT proceed to implement-
 ```
 ✓ Task ready: {type}/{name}
 
-Continue with implement-task, or proceed with manual work. The turn-log hook will write to
-  .claude-workspace/task/{type}-{name}/TURNS.md
-automatically.
+Continue with implement-task, or proceed with manual work.
 ```
 
 ## File Creation During Task (REQUIRED)

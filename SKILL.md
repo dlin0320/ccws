@@ -9,9 +9,9 @@ description: Cognitive harness for developer-AI pairs. Two human gates, autonomo
 
 A cognitive harness for developer-AI pairs working in Claude Code. The developer steers (plan approval, result approval); each flow executes autonomously when invoked (implement against success criteria, review against specs, reconcile divergences). The harness operates at the intent layer — specifying *what* to verify and preserve, not *how* — so implementations adapt as models improve.
 
-**Architecture:** Tasks in `.claude-workspace/task/` organize work with README + symlinks. Artifacts in `archive/` persist across tasks. Deliverables stay in the project. Context preserved via task READMEs (WIP), git commits (completed), and structured task files (TURNS, SNAPSHOT, FEEDBACK, SUMMARY). Context types have explicit lifespans: turns are ephemeral, progress notes are durable, git history is immutable, archive artifacts are cross-task.
+**Architecture:** Tasks in `.claude-workspace/task/` organize work with README + symlinks. Artifacts in `archive/` persist across tasks. Deliverables stay in the project. Context preserved via task READMEs (WIP), git commits (completed), and structured task files (FEEDBACK, SUMMARY). Context types have explicit lifespans: progress notes are durable, git history is immutable, archive artifacts are cross-task.
 
-**Branch-bound, in place:** Each task is bound to a branch. prep-task checks out a new branch `{type}/{name}` (feat/fix/refactor/etc.) in the current repo — no worktree, no session switch — and end-task pushes it and opens a PR. Task directories are flat: the branch name flattens to dashes, so `feat/auth-refresh` → `task/feat-auth-refresh/`. Task resolution throughout — including the turn-log hook — is via `git rev-parse --abbrev-ref HEAD` with that transform applied. See `references/patterns.md § Task Directory Naming`. If the user wants to run concurrent tasks, they create a worktree manually (`git worktree add ...`) before running prep-task; cleanup-task detects and removes any such worktree.
+**Branch-bound, in place:** Each task is bound to a branch. prep-task checks out a new branch `{type}/{name}` (feat/fix/refactor/etc.) in the current repo — no worktree, no session switch — and end-task pushes it and opens a PR. Task directories are flat: the branch name flattens to dashes, so `feat/auth-refresh` → `task/feat-auth-refresh/`. Task resolution is via `git rev-parse --abbrev-ref HEAD` with that transform applied. See `references/patterns.md § Task Directory Naming`. If the user wants to run concurrent tasks, they create a worktree manually (`git worktree add ...`) before running prep-task; cleanup-task detects and removes any such worktree.
 
 ## What This Skill Provides
 
@@ -34,19 +34,12 @@ When spawning a subagent, resolve the flow file path relative to this skill's di
 | **setup** | "setup workspace", or `.claude-workspace/` doesn't exist | Inline | `flows/setup-flow.md` |
 | **prep-task** | "prep [task]", "start [task]", "resume [task]" | Inline | `flows/prep-task-flow.md` |
 | **implement-task** | "implement", "build it", "go" | **Subagent** | `flows/implement-task-flow.md` |
-| **checkpoint-task** | "checkpoint", "save progress" | Inline | `flows/checkpoint-task-flow.md` |
-| **snapshot-task** | "snapshot", "capture state" | Inline | `flows/snapshot-task-flow.md` |
 | **review-task** | "review", "audit", "check implementation" | **Subagent** | `flows/review-task-flow.md` |
 | **reconcile-task** | "reconcile", "resolve findings", "fix review items", address FEEDBACK.md | Inline | `flows/reconcile-task-flow.md` |
 | **summarize-task** | "summarize", "wrap up" | Inline | `flows/summarize-task-flow.md` |
 | **end-task** | "end task", task objectives achieved | Inline | `flows/end-task-flow.md` |
 | **triage-pr-review** | "triage pr review", "ingest bot review", "check claude bot feedback" | **Subagent** | `flows/triage-pr-review-flow.md` |
 | **cleanup-task** | "cleanup task", after PR merges | Inline | `flows/cleanup-task-flow.md` |
-
-**Automatic behavior** (not a flow — installed by setup-flow as a hook):
-- **Turn logging** — the turn-log hook fires on `Stop` (main session) and `SubagentStop` (subagent completion). It resolves the active task from the current git branch and appends a one-line entry to `task/<branch>/TURNS.md`. Checkpoint distills TURNS.md into structured README progress notes. See `references/patterns.md § Turn Logging`.
-
-> **Note:** Setup installs a hook in the project's `.claude/settings.json` — the one deliberate write outside `.claude-workspace/`.
 
 ## Development Loop
 
@@ -58,7 +51,7 @@ prep → [GATE 1: plan approved] → implement ↔ review ↔ reconcile → summ
      → (PR merges externally) → cleanup-task
 ```
 
-The implement/review/reconcile cycle repeats as needed before Gate 2. After the PR opens, the triage/reconcile cycle mirrors the pre-gate one — same shape, external source. Cleanup is a separate, post-merge phase with its own preconditions (merged PR, clean tree, not currently on the branch). Checkpoint and snapshot can be invoked at any point to save context.
+The implement/review/reconcile cycle repeats as needed before Gate 2. After the PR opens, the triage/reconcile cycle mirrors the pre-gate one — same shape, external source. Cleanup is a separate, post-merge phase with its own preconditions (merged PR, clean tree, not currently on the branch). For mid-session context relief use `/compact`; cross-session handoff is via README + git, kept current by implement/reconcile naturally.
 
 ## Flow Contracts
 
@@ -66,18 +59,15 @@ What each flow reads and produces — use this to trace data flow and debug issu
 
 | Flow | Reads | Produces | Gate |
 |------|-------|----------|------|
-| **setup** | — | `.claude-workspace/` structure, `.gitignore`, `.claude/settings.json` hook entries, `CLAUDE.md` maintenance block | — |
+| **setup** | — | `.claude-workspace/` structure, `.gitignore`, `CLAUDE.md` maintenance block | — |
 | **prep-task** | User input; README (if resuming) | Branch `{type}/{name}` checked out in current repo, task dir, `README.md` | Gate 1: user approves plan |
-| **implement-task** | README, symlinked refs + code, SNAPSHOT.md | Code changes, README progress note | — |
-| **checkpoint-task** | Conversation, TURNS.md, git state | README progress notes + design decisions; clears TURNS.md | — |
-| **snapshot-task** | Conversation, TURNS.md, code | `SNAPSHOT.md` in task dir | — |
-| **review-task** | README, symlinked refs + code, SNAPSHOT.md, prior FEEDBACK.md | `FEEDBACK.md` in task dir | — |
+| **implement-task** | README, symlinked refs + code | Code changes, README progress note | — |
+| **review-task** | README, symlinked refs + code, prior FEEDBACK.md | `FEEDBACK.md` in task dir | — |
 | **reconcile-task** | FEEDBACK.md, README, specs, code | Code fixes, spec updates, README design decisions | — |
-| **summarize-task** | README, SNAPSHOT.md, FEEDBACK.md, git diff | `SUMMARY.md` in task dir | Gate 2: user reviews summary |
+| **summarize-task** | README, FEEDBACK.md, git diff | `SUMMARY.md` in task dir | Gate 2: user reviews summary |
 | **end-task** | SUMMARY.md or README, git status | Git commits, pushed branch, pull request | — |
 | **triage-pr-review** | PR reviews + comments (via `gh`), README, prior FEEDBACK.md | `## PR Review Findings` section appended to FEEDBACK.md; README progress note | — |
 | **cleanup-task** | `gh pr view` state, `git worktree list`, task dir | Task dir deleted; worktree removed if one existed. Local branch + remote-tracking refs kept by default; `--delete-branch` opts in to full teardown. | — |
-| **turn-log hook** (automatic) | Stop / SubagentStop hook input | Entry appended to `task/{task-name}/TURNS.md` | — |
 
 ## References
 
